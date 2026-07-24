@@ -1,5 +1,6 @@
 """yt-dlp wrapper for TikTok extraction."""
 
+import os
 import re
 from typing import Any
 
@@ -16,7 +17,7 @@ def is_profile_url(url: str) -> bool:
     return bool(re.search(r"tiktok\.com/@[\w.]+", url)) and not is_video_url(url)
 
 
-def extract_info(url: str) -> dict[str, Any]:
+def extract_info(url: str, cookiefile: str | None = None) -> dict[str, Any]:
     """Extract full video metadata and formats via yt-dlp.
 
     Returns the raw yt-dlp info dict. Raises ExtractError on failure.
@@ -26,37 +27,40 @@ def extract_info(url: str) -> dict[str, Any]:
         "quiet": True,
         "no_warnings": True,
     }
+    if cookiefile and os.path.exists(cookiefile):
+        opts["cookiefile"] = cookiefile
     with yt_dlp.YoutubeDL(opts) as ydl:
         return ydl.extract_info(url, download=False)
 
 
-def resolve_video(url: str) -> dict[str, Any]:
-    """Resolve a TikTok video URL into a clean metadata + format response.
-
-    Returns a dict suitable for the /resolve API:
-        {
-            "id": str,
-            "thumbnail": str,
-            "author": str,
-            "caption": str,
-            "duration": int,
-            "formats": { "sd": {...}, "hd": {...} }
-        }
-    """
-    if not is_video_url(url):
-        if is_profile_url(url):
-            raise ValueError("Profile URLs are not supported yet (Phase 3)")
-        raise ValueError("Not a valid TikTok video URL")
-
-    info = extract_info(url)
-
-    # Extract the first non-empty description (yt-dlp puts it in title or description)
-    caption = info.get("description") or info.get("title") or ""
-
+def extract_profile(url: str, cookiefile: str | None = None, max_entries: int = 30) -> dict[str, Any]:
+    """Extract video list from a TikTok profile (playlist) via yt-dlp."""
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "extract_flat": True,
+        "playlistend": max_entries,
+    }
+    if cookiefile and os.path.exists(cookiefile):
+        opts["cookiefile"] = cookiefile
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+    entries = []
+    for e in (info.get("entries") or []):
+        thumb = ""
+        thumbs = e.get("thumbnails") or []
+        if thumbs:
+            thumb = thumbs[0].get("url", "")
+        entries.append({
+            "id": e.get("id", ""),
+            "url": e.get("url", ""),
+            "title": (e.get("title") or "")[:200],
+            "duration": e.get("duration") or 0,
+            "thumbnail": thumb,
+        })
     return {
-        "id": info.get("id", ""),
-        "thumbnail": info.get("thumbnail", ""),
-        "author": info.get("uploader", info.get("channel", "")),
-        "caption": caption[:500],  # trim long captions
-        "duration": info.get("duration", 0),
+        "type": "profile",
+        "author": info.get("title") or info.get("uploader", ""),
+        "total": info.get("playlist_count", len(entries)),
+        "entries": entries,
     }

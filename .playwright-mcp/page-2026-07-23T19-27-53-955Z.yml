@@ -1,0 +1,102 @@
+- generic [ref=f27e1]:
+  - generic [ref=f27e2]:
+    - region "Notifications alt+T"
+    - generic [ref=f27e3]:
+      - generic [ref=f27e5]:
+        - generic [ref=f27e7]:
+          - link "Go to TikTok For You feed" [ref=f27e9] [cursor=pointer]:
+            - /url: /
+            - strong: TikTok
+          - searchbox "Search" [ref=f27e15] [cursor=pointer]
+        - generic [ref=f27e21]:
+          - generic [ref=f27e22]:
+            - link [ref=f27e24] [cursor=pointer]:
+              - /url: /
+              - listitem "For You" [ref=f27e25]
+            - link [ref=f27e32] [cursor=pointer]:
+              - /url: /explore
+              - listitem "Explore" [ref=f27e33]
+            - link [ref=f27e41] [cursor=pointer]:
+              - /url: /following
+              - listitem "Following" [ref=f27e42]
+            - link [ref=f27e51] [cursor=pointer]:
+              - /url: /live
+              - listitem "LIVE" [ref=f27e52]
+            - link [ref=f27e60] [cursor=pointer]:
+              - /url: /tiktokstudio/upload?from=webapp&tab=video
+              - listitem "Upload" [ref=f27e61]
+            - link [ref=f27e69] [cursor=pointer]:
+              - /url: /@
+              - listitem "Profile" [ref=f27e70]
+            - listitem "More" [ref=f27e77] [cursor=pointer]
+          - button "Log in" [ref=f27e89] [cursor=pointer]
+      - generic [ref=f27e99]:
+        - generic [ref=f27e100]:
+          - article [ref=f27e102]:
+            - generic [ref=f27e103]:
+              - region "Watch in full screen" [ref=f27e104] [cursor=pointer]:
+                - generic [ref=f27e105]:
+                  - generic [ref=f27e111]:
+                    - generic [ref=f27e112]:
+                      - button "Volume" [pressed] [ref=f27e115]
+                      - generic [ref=f27e121]:
+                        - button [ref=f27e123]
+                        - button "Enter full screen" [ref=f27e129]
+                    - generic [ref=f27e137]:
+                      - link [ref=f27e138]:
+                        - /url: /@ajaymahato3373
+                        - paragraph [ref=f27e140]: ajaymahato3373
+                      - generic [ref=f27e141]: · 4-13
+                  - generic [ref=f27e142]:
+                    - paragraph: 00:00 / 00:07
+                    - slider "Video progress" [ref=f27e146]
+              - generic [ref=f27e148]:
+                - generic [ref=f27e149]:
+                  - link [ref=f27e150] [cursor=pointer]:
+                    - /url: /@ajaymahato3373
+                    - img "ajaymahato3373" [ref=f27e154]
+                  - button [ref=f27e155] [cursor=pointer]
+                - button "Like video 26.5K likes" [ref=f27e160] [cursor=pointer]:
+                  - button [ref=f27e163]
+                  - strong [ref=f27e169]: 26.5K
+                - button "Read or add comments 344 comments" [ref=f27e170] [cursor=pointer]:
+                  - button [ref=f27e173]
+                  - strong [ref=f27e178]: "344"
+                - button "Add to Favorites. 1298 added to Favorites" [ref=f27e181] [cursor=pointer]:
+                  - button [ref=f27e184]
+                  - strong [ref=f27e190]: "1298"
+                - button "Share video 420 shares" [ref=f27e192] [cursor=pointer]:
+                  - button [ref=f27e195]
+                  - strong [ref=f27e200]: "420"
+                - link "Watch more videos with music original sound - Titung Kanchha" [ref=f27e201] [cursor=pointer]:
+                  - /url: /music/original-sound-7621365543077022484
+          - complementary
+        - generic [ref=f27e213]:
+          - button "Comments" [ref=f27e216] [cursor=pointer]
+          - button "You may like" [ref=f27e222] [cursor=pointer]
+      - generic [ref=f27e239]:
+        - button [ref=f27e242] [cursor=pointer]
+        - button [ref=f27e249] [cursor=pointer]
+        - button "Log in" [ref=f27e256] [cursor=pointer]
+  - dialog [ref=f27e263]:
+    - generic [ref=f27e264]:
+      - generic [ref=f27e265]:
+        - heading "Captions" [level=2] [ref=f27e266]
+        - button "Close_button" [active] [ref=f27e267] [cursor=pointer]
+      - generic [ref=f27e270]:
+        - generic [ref=f27e272]:
+          - generic [ref=f27e273]:
+            - generic [ref=f27e274]: Show captions (unavailable)
+            - generic [ref=f27e275]: Captions currently not supported
+          - switch [disabled] [ref=f27e279]
+        - generic [ref=f27e280]:
+          - generic [ref=f27e281]:
+            - generic [ref=f27e282]: Always translate posts
+            - switch [ref=f27e287] [cursor=pointer]
+          - generic [ref=f27e288]: Descriptions and captions will be translated, except for languages you've excluded.
+        - button "Do not translate Select language" [ref=f27e290] [cursor=pointer]:
+          - generic [ref=f27e291]: Do not translate
+          - generic [ref=f27e292]: Select language
+        - button "Translate into English" [ref=f27e297] [cursor=pointer]:
+          - generic [ref=f27e298]: Translate into
+          - generic [ref=f27e299]: English

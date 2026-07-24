@@ -133,6 +133,8 @@
     .btn-sd:hover:not(:disabled) { background: #15803d; }
     .btn-hd { background: #2563eb; }
     .btn-hd:hover:not(:disabled) { background: #1d4ed8; }
+    .btn-queue { background: #7c3aed; }
+    .btn-queue:hover:not(:disabled) { background: #6d28d9; }
     .loading {
       display: none;
       text-align: center;
@@ -142,6 +144,163 @@
     .loading.visible {
       display: block;
     }
+    .settings {
+      margin-top: 2rem;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 1.5rem;
+    }
+    .settings summary {
+      cursor: pointer;
+      font-weight: 500;
+      color: #6b7280;
+      font-size: 0.9rem;
+      user-select: none;
+    }
+    .settings summary:hover {
+      color: #374151;
+    }
+    .settings-content {
+      margin-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .settings textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 0.75rem;
+      font-size: 0.85rem;
+      font-family: monospace;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      resize: vertical;
+    }
+    .auth-status {
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+    .auth-status.ok { color: #16a34a; }
+    .auth-status.no { color: #6b7280; }
+    .settings-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .settings-actions button {
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-save { background: #2563eb; color: white; }
+    .btn-save:hover { background: #1d4ed8; }
+    .btn-clear { background: #ef4444; color: white; }
+    .btn-clear:hover { background: #dc2626; }
+    .settings-hint {
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+    .queue-section {
+      margin-top: 2rem;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 1.5rem;
+    }
+    .queue-section h3 {
+      margin: 0 0 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    .queue-table {
+      width: 100%;
+      font-size: 0.85rem;
+      border-collapse: collapse;
+    }
+    .queue-table th {
+      text-align: left;
+      padding: 0.4rem 0.5rem;
+      color: #6b7280;
+      font-weight: 500;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .queue-table td {
+      padding: 0.4rem 0.5rem;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .queue-table .status-pending { color: #f59e0b; }
+    .queue-table .status-downloading { color: #2563eb; }
+    .queue-table .status-completed { color: #16a34a; }
+    .queue-table .status-failed { color: #ef4444; }
+    .queue-empty {
+      color: #9ca3af;
+      font-size: 0.85rem;
+      padding: 1rem 0;
+    }
+    .profile-result { display: none; }
+    .profile-result.visible { display: block; }
+    .profile-header { margin-bottom: 1rem; }
+    .profile-header h2 {
+      margin: 0 0 0.25rem;
+      font-size: 1.25rem;
+      color: #1f2937;
+    }
+    .profile-header .sub {
+      font-size: 0.85rem;
+      color: #6b7280;
+    }
+    .video-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    .video-card {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      padding: 0.75rem;
+      background: #f9fafb;
+      border-radius: 8px;
+    }
+    .video-card img {
+      width: 80px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .video-card .info {
+      flex: 1;
+      min-width: 0;
+    }
+    .video-card .title {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #1f2937;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 0.25rem;
+    }
+    .video-card .dur {
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+    .video-card .dl-btn {
+      padding: 0.4rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      border: none;
+      border-radius: 6px;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .video-card .dl-btn:hover { background: #1d4ed8; }
+    .video-card .dl-btn:disabled { opacity: 0.5; cursor: wait; }
   </style>
 </head>
 <body>
@@ -166,7 +325,34 @@
       <div class="download-buttons">
         <button id="sdBtn" class="download-btn btn-sd" disabled>Download SD</button>
         <button id="hdBtn" class="download-btn btn-hd" disabled>Download HD</button>
+        <button id="queueSingleBtn" class="download-btn btn-queue" disabled>Queue</button>
       </div>
+    </div>
+
+    <div id="profileResult" class="profile-result">
+      <div class="profile-header">
+        <h2 id="profileAuthor"></h2>
+        <div class="sub" id="profileCount"></div>
+      </div>
+      <div id="videoList" class="video-list"></div>
+    </div>
+
+    <details class="settings">
+      <summary>Settings</summary>
+      <div class="settings-content">
+        <div class="auth-status" id="authStatus">Checking auth...</div>
+        <textarea id="cookieInput" placeholder="Paste Netscape-format cookies here (from browser extension)..."></textarea>
+        <div class="settings-hint">Export from your browser: copy the full cookie text for tiktok.com in Netscape format.</div>
+        <div class="settings-actions">
+          <button class="btn-save" id="saveCookiesBtn">Save Cookies</button>
+          <button class="btn-clear" id="clearCookiesBtn">Clear Cookies</button>
+        </div>
+      </div>
+    </details>
+
+    <div class="queue-section" id="queueSection">
+      <h3>Download Queue</h3>
+      <div id="queueContainer"><div class="queue-empty">No items in queue.</div></div>
     </div>
   </div>
 
@@ -176,6 +362,10 @@
     const errorMsg = document.getElementById('errorMsg');
     const loadingMsg = document.getElementById('loadingMsg');
     const result = document.getElementById('result');
+    const profileResult = document.getElementById('profileResult');
+    const profileAuthor = document.getElementById('profileAuthor');
+    const profileCount = document.getElementById('profileCount');
+    const videoList = document.getElementById('videoList');
     const thumbnail = document.getElementById('thumbnail');
     const author = document.getElementById('author');
     const caption = document.getElementById('caption');
@@ -192,7 +382,6 @@
       urlInput.disabled = isLoading;
       loadingMsg.classList.toggle('visible', isLoading);
       errorMsg.classList.remove('visible');
-      if (!isLoading) result.classList.remove('visible');
     }
 
     function showError(msg) {
@@ -229,28 +418,77 @@
           throw new Error(data.detail || 'Failed to resolve video');
         }
 
-        // Store for download
-        currentVideoUrl = url;
-        sdFormatId = data.formats.sd?.format_id || '';
-        hdFormatId = data.formats.hd?.format_id || '';
-
-        // Populate UI
-        thumbnail.src = data.thumbnail;
-        author.textContent = data.author;
-        caption.textContent = data.caption || '(no caption)';
-        duration.textContent = formatDuration(data.duration);
-
-        // Enable available buttons
-        sdBtn.disabled = !sdFormatId;
-        hdBtn.disabled = !hdFormatId;
-
-        result.classList.add('visible');
+        if (data.type === 'profile') {
+          showProfile(data);
+        } else {
+          showVideo(data, url);
+        }
       } catch (err) {
         showError(err.message);
       } finally {
         setLoading(false);
       }
     });
+
+    function showVideo(data, url) {
+      result.classList.add('visible');
+      profileResult.classList.remove('visible');
+      currentVideoUrl = url;
+      sdFormatId = data.formats.sd?.format_id || '';
+      hdFormatId = data.formats.hd?.format_id || '';
+      thumbnail.src = data.thumbnail;
+      author.textContent = data.author;
+      caption.textContent = data.caption || '(no caption)';
+      duration.textContent = formatDuration(data.duration);
+      sdBtn.disabled = !sdFormatId;
+      hdBtn.disabled = !hdFormatId;
+    }
+
+    function showProfile(data) {
+      profileResult.classList.add('visible');
+      result.classList.remove('visible');
+      profileAuthor.textContent = data.author;
+      const shown = data.entries.length;
+      profileCount.textContent = `Showing ${shown} of ${data.total} videos`;
+      // Queue All button
+      const existingBtn = document.getElementById('queueAllBtn');
+      if (!existingBtn) {
+        const btn = document.createElement('button');
+        btn.id = 'queueAllBtn';
+        btn.className = 'dl-btn';
+        btn.style.cssText = 'margin-bottom:0.75rem;background:#7c3aed';
+        btn.textContent = 'Queue All';
+        btn.onclick = () => {
+          btn.disabled = true;
+          btn.textContent = 'Queuing...';
+          for (const e of data.entries) {
+            addToQueue(e.url, e.title);
+          }
+          setTimeout(() => { btn.disabled = false; btn.textContent = 'Queue All'; }, 2000);
+        };
+        profileCount.after(btn);
+      }
+      videoList.innerHTML = '';
+      for (const e of data.entries) {
+        const card = document.createElement('div');
+        card.className = 'video-card';
+        card.innerHTML = `
+          <img src="${e.thumbnail || ''}" alt="" loading="lazy">
+          <div class="info">
+            <div class="title">${e.title || 'Untitled'}</div>
+            <div class="dur">${formatDuration(e.duration)}</div>
+          </div>
+          <button class="dl-btn" data-url="${e.url}">Queue</button>
+        `;
+        card.querySelector('.dl-btn').onclick = () => {
+          const btn = card.querySelector('.dl-btn');
+          btn.textContent = 'Queued';
+          btn.disabled = true;
+          addToQueue(e.url, e.title);
+        };
+        videoList.appendChild(card);
+      }
+    }
 
     function download(formatId) {
       if (!formatId) return;
@@ -265,6 +503,112 @@
     urlInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') fetchBtn.click();
     });
+
+    // ── Queue management ──
+    const queueContainer = document.getElementById('queueContainer');
+
+    function renderQueue(items) {
+      if (!items || items.length === 0) {
+        queueContainer.innerHTML = '<div class="queue-empty">No items in queue.</div>';
+        return;
+      }
+      let html = '<table class="queue-table"><thead><tr><th>#</th><th>Title</th><th>Status</th><th></th></tr></thead><tbody>';
+      for (const item of items) {
+        const st = item.status;
+        html += `<tr>
+          <td>${item.id}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.title || item.url}</td>
+          <td class="status-${st}">${st}</td>
+          <td>${st === 'completed' ? `<a href="/queue/${item.id}/file" style="color:#2563eb">Download</a>` : st === 'pending' ? `<button class="queue-rm" data-id="${item.id}" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:0.85rem">Remove</button>` : ''}</td>
+        </tr>`;
+      }
+      html += '</tbody></table>';
+      queueContainer.innerHTML = html;
+      // Wire remove buttons
+      for (const btn of queueContainer.querySelectorAll('.queue-rm')) {
+        btn.onclick = async () => {
+          const id = btn.dataset.id;
+          await fetch(`/queue/${id}`, { method: 'DELETE' });
+          pollQueue();
+        };
+      }
+    }
+
+    async function pollQueue() {
+      try {
+        const r = await fetch('/queue');
+        const data = await r.json();
+        renderQueue(data.items || []);
+      } catch { /* ignore */ }
+    }
+
+    setInterval(pollQueue, 2000);
+
+    function addToQueue(url, title) {
+      fetch('/queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      }).catch(() => {});
+    }
+
+    // ── Auth / Cookie management ──
+    const authStatus = document.getElementById('authStatus');
+    const cookieInput = document.getElementById('cookieInput');
+    const saveCookiesBtn = document.getElementById('saveCookiesBtn');
+    const clearCookiesBtn = document.getElementById('clearCookiesBtn');
+
+    async function checkAuth() {
+      try {
+        const r = await fetch('/auth/status');
+        const data = await r.json();
+        if (data.has_cookies) {
+          authStatus.textContent = 'Authenticated (cookies loaded)';
+          authStatus.className = 'auth-status ok';
+        } else {
+          authStatus.textContent = 'Not authenticated';
+          authStatus.className = 'auth-status no';
+        }
+      } catch {
+        authStatus.textContent = 'Could not check auth status';
+        authStatus.className = 'auth-status no';
+      }
+    }
+
+    saveCookiesBtn.addEventListener('click', async () => {
+      const cookies = cookieInput.value.trim();
+      if (!cookies) return;
+      saveCookiesBtn.disabled = true;
+      try {
+        const r = await fetch('/auth/cookies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cookies }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail || 'Failed to save cookies');
+        cookieInput.value = '';
+        await checkAuth();
+      } catch (err) {
+        authStatus.textContent = 'Error: ' + err.message;
+        authStatus.className = 'auth-status no';
+      } finally {
+        saveCookiesBtn.disabled = false;
+      }
+    });
+
+    clearCookiesBtn.addEventListener('click', async () => {
+      if (!confirm('Clear saved cookies?')) return;
+      try {
+        await fetch('/auth/cookies', { method: 'DELETE' });
+        await checkAuth();
+      } catch {
+        authStatus.textContent = 'Error clearing cookies';
+        authStatus.className = 'auth-status no';
+      }
+    });
+
+    checkAuth();
   </script>
 </body>
 </html>
