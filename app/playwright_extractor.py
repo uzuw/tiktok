@@ -177,8 +177,6 @@ def _build_result(item: dict) -> dict[str, Any]:
     """Turn a TikTok item struct into the yt-dlp-style output dict."""
     vid = item.get("id", "")
     author = item.get("author", {}) or {}
-    music = item.get("music", {}) or {}
-    stats = item.get("stats", {}) or {}
     video = item.get("video", {}) or {}
 
     play_url = (

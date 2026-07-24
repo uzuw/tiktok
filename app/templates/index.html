@@ -129,10 +129,8 @@
       opacity: 0.6;
       cursor: not-allowed;
     }
-    .btn-sd { background: #16a34a; }
-    .btn-sd:hover:not(:disabled) { background: #15803d; }
-    .btn-hd { background: #2563eb; }
-    .btn-hd:hover:not(:disabled) { background: #1d4ed8; }
+    .btn-primary { background: #2563eb; }
+    .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
     .btn-queue { background: #7c3aed; }
     .btn-queue:hover:not(:disabled) { background: #6d28d9; }
     .loading {
@@ -323,8 +321,7 @@
         <div class="meta-row"><span class="meta-label">Duration:</span> <span id="duration" class="meta-value"></span></div>
       </div>
       <div class="download-buttons">
-        <button id="sdBtn" class="download-btn btn-sd" disabled>Download SD</button>
-        <button id="hdBtn" class="download-btn btn-hd" disabled>Download HD</button>
+        <button id="downloadBtn" class="download-btn btn-primary" disabled>Download</button>
         <button id="queueSingleBtn" class="download-btn btn-queue" disabled>Queue</button>
       </div>
     </div>
@@ -370,12 +367,10 @@
     const author = document.getElementById('author');
     const caption = document.getElementById('caption');
     const duration = document.getElementById('duration');
-    const sdBtn = document.getElementById('sdBtn');
-    const hdBtn = document.getElementById('hdBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
 
     let currentVideoUrl = '';
-    let sdFormatId = '';
-    let hdFormatId = '';
+    let formatId = '';
 
     function setLoading(isLoading) {
       fetchBtn.disabled = isLoading;
@@ -434,14 +429,13 @@
       result.classList.add('visible');
       profileResult.classList.remove('visible');
       currentVideoUrl = url;
-      sdFormatId = data.formats.sd?.format_id || '';
-      hdFormatId = data.formats.hd?.format_id || '';
+      formatId = data.format_id || '';
       thumbnail.src = data.thumbnail;
       author.textContent = data.author;
       caption.textContent = data.caption || '(no caption)';
       duration.textContent = formatDuration(data.duration);
-      sdBtn.disabled = !sdFormatId;
-      hdBtn.disabled = !hdFormatId;
+      downloadBtn.disabled = !formatId;
+      queueSingleBtn.disabled = !formatId;
     }
 
     function showProfile(data) {
@@ -490,14 +484,13 @@
       }
     }
 
-    function download(formatId) {
+    function download() {
       if (!formatId) return;
       const params = new URLSearchParams({ url: currentVideoUrl, format_id: formatId });
       window.location.href = `/download?${params}`;
     }
 
-    sdBtn.addEventListener('click', () => download(sdFormatId));
-    hdBtn.addEventListener('click', () => download(hdFormatId));
+    downloadBtn.addEventListener('click', download);
 
     // Enter key in input triggers fetch
     urlInput.addEventListener('keydown', (e) => {
@@ -544,13 +537,17 @@
 
     setInterval(pollQueue, 2000);
 
-    function addToQueue(url, title) {
+    function addToQueue(url, title, fmt) {
       fetch('/queue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, format_id: fmt || '' }),
       }).catch(() => {});
     }
+
+    document.getElementById('queueSingleBtn').addEventListener('click', () => {
+      if (currentVideoUrl) addToQueue(currentVideoUrl, caption.textContent, formatId);
+    });
 
     // ── Auth / Cookie management ──
     const authStatus = document.getElementById('authStatus');

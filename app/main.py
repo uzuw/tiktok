@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from app.cookies import clear_cookies, has_cookies, load_cookies, save_cookies
 from app.download_manager import enqueue, get_item, list_items, remove_item
 from app.extractor import extract_info, extract_profile, is_profile_url, is_video_url
-from app.formats import pick_sd_hd
+from app.formats import pick_best_format
 from app.playwright_extractor import playwright_extract
 
 
@@ -22,6 +22,11 @@ app = FastAPI(title="TikTok Downloader")
 
 class ResolveRequest(BaseModel):
     url: str
+
+
+class QueueRequest(BaseModel):
+    url: str
+    format_id: str = ""
 
 
 class CookieRequest(BaseModel):
@@ -35,7 +40,7 @@ async def index():
 
 @app.post("/resolve")
 async def resolve_endpoint(req: ResolveRequest):
-    """Resolve a TikTok URL into metadata + SD/HD format IDs."""
+    """Resolve a TikTok URL into metadata + best-quality format_id."""
     url = req.url.strip()
     cookiefile = load_cookies()
     loop = asyncio.get_event_loop()
@@ -66,47 +71,39 @@ async def resolve_endpoint(req: ResolveRequest):
     is_playwright = info.get("_source") == "playwright"
 
     if is_playwright:
-        sd_fmt = None
-        hd_fmt = None
+        format_id = ""
         for f in formats:
-            if f.get("format_id") == "play_addr":
-                sd_fmt = f
-            elif f.get("format_id") == "download_addr":
-                hd_fmt = f
+            if f.get("format_id") == "download_addr":
+                format_id = f["url"]
+                break
+        if not format_id:
+            for f in formats:
+                if f.get("format_id") == "play_addr":
+                    format_id = f["url"]
+                    break
         return {
             "id": info.get("id", ""),
             "thumbnail": info.get("thumbnail", ""),
             "author": info.get("uploader") or info.get("channel", ""),
             "caption": caption[:500],
             "duration": info.get("duration", 0),
-            "formats": {
-                "sd": {"format_id": sd_fmt["url"]} if sd_fmt else None,
-                "hd": {"format_id": hd_fmt["url"]} if hd_fmt else None,
-                "_direct": True,
-            },
+            "format_id": format_id,
         }
 
-    sd_hd = pick_sd_hd(formats)
+    best = pick_best_format(formats)
     return {
         "id": info.get("id", ""),
         "thumbnail": info.get("thumbnail", ""),
         "author": info.get("uploader") or info.get("channel", ""),
         "caption": caption[:500],
         "duration": info.get("duration", 0),
-        "formats": {
-            "sd": {"format_id": sd_hd["sd"]["format_id"]} if sd_hd.get("sd") else None,
-            "hd": {"format_id": sd_hd["hd"]["format_id"]} if sd_hd.get("hd") else None,
-        },
+        "format_id": best["format_id"] if best else "",
     }
 
 
 @app.get("/auth/status")
 async def auth_status():
     return {"authenticated": has_cookies()}
-
-
-class CookieRequest(BaseModel):
-    cookies: str
 
 
 @app.post("/auth/cookies")
@@ -131,12 +128,13 @@ async def remove_cookies():
 
 
 @app.post("/queue")
-async def queue_add(req: ResolveRequest):
-    """Add a video URL to the download queue (uses format_id='download')."""
+async def queue_add(req: QueueRequest):
+    """Add a video URL to the download queue."""
     url = req.url.strip()
     if not is_video_url(url):
         raise HTTPException(status_code=400, detail="Invalid TikTok URL")
-    item = enqueue(url, "download", title="")
+    fmt = req.format_id.strip() or ""
+    item = enqueue(url, fmt, title="")
     return item
 
 
@@ -194,13 +192,14 @@ async def download_endpoint(url: str, format_id: str, bg: BackgroundTasks):
             info = ydl.extract_info(url, download=True)
         return tmp, info.get("id", "video")
 
+    tmp = None
     try:
         if format_id.startswith("http"):
             tmp, video_id = await loop.run_in_executor(None, download_direct, format_id)
         else:
             tmp, video_id = await loop.run_in_executor(None, download_ytdlp)
     except Exception as e:
-        if os.path.exists(tmp):
+        if tmp and os.path.exists(tmp):
             os.unlink(tmp)
         raise HTTPException(status_code=502, detail=f"Download failed: {e}")
 
