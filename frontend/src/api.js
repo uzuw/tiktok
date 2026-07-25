@@ -47,6 +47,11 @@ export async function removeQueueItem(id) {
   await api(`/queue/${id}`, { method: "DELETE" });
 }
 
+export async function clearQueue() {
+  const res = await api("/queue", { method: "DELETE" });
+  return res.json();
+}
+
 export async function authStatus() {
   const res = await api("/auth/status");
   return res.json();

@@ -1,12 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { FiGithub } from "react-icons/fi";
-import { resolveVideo, enqueue, authStatus } from "./api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FiGithub, FiMonitor, FiShield, FiZap } from "react-icons/fi";
+import { authStatus, enqueue, resolveVideo } from "./api";
 import Navbar from "./components/Navbar";
-import SearchBar from "./components/SearchBar";
-import VideoResult from "./components/VideoResult";
-
 import QueuePanel from "./components/QueuePanel";
+import SearchBar from "./components/SearchBar";
 import SettingsModal from "./components/SettingsModal";
+import VideoResult from "./components/VideoResult";
 
 function getInitialTheme() {
   const saved = localStorage.getItem("savetok-theme");
@@ -62,6 +61,11 @@ export default function App() {
 
   return (
     <div className="app">
+      <div className="grid-dots" aria-hidden="true" />
+      <div className="glow-blob glow-blob-1" aria-hidden="true" />
+      <div className="glow-blob glow-blob-2" aria-hidden="true" />
+      <div className="glow-blob glow-blob-3" aria-hidden="true" />
+
       <Navbar
         theme={theme}
         onToggleTheme={toggleTheme}
@@ -71,8 +75,22 @@ export default function App() {
 
       <main className="main">
         <div className="hero">
-          <h1 className="hero-title">SaveTok</h1>
-          <p className="hero-subtitle">Download TikTok videos in best quality, fast and free.</p>
+          <h1 className="hero-title hero-title-gradient">SaveTok</h1>
+          <p className="hero-subtitle">
+            Download TikTok videos instantly in the best available quality.
+            No watermarks, no sign-up, no fuss.
+          </p>
+          <div className="feature-pills">
+            <span className="feature-pill">
+              <FiZap size={12} /> Instant resolve
+            </span>
+            <span className="feature-pill">
+              <FiShield size={12} /> No watermarks
+            </span>
+            <span className="feature-pill">
+              <FiMonitor size={12} /> Best quality
+            </span>
+          </div>
         </div>
 
         <SearchBar onResolve={handleResolve} loading={loading} />
@@ -81,6 +99,30 @@ export default function App() {
 
         {result && <VideoResult video={result} onQueue={handleQueueVideo} />}
 
+        <div className="how-it-works">
+          <h2 className="how-title">How it works</h2>
+          <div className="how-steps">
+            <div className="how-step">
+              <span className="how-step-num">1</span>
+              <span className="how-step-text">
+                <strong>Paste</strong> any TikTok video link above
+              </span>
+            </div>
+            <div className="how-step">
+              <span className="how-step-num">2</span>
+              <span className="how-step-text">
+                <strong>Resolve</strong> picks the highest quality format
+              </span>
+            </div>
+            <div className="how-step">
+              <span className="how-step-num">3</span>
+              <span className="how-step-text">
+                <strong>Download</strong> or queue it for later
+              </span>
+            </div>
+          </div>
+        </div>
+
         <QueuePanel />
       </main>
 
@@ -88,6 +130,8 @@ export default function App() {
         <a href="https://github.com" target="_blank" rel="noopener" className="footer-link">
           <FiGithub size={14} /> SaveTok
         </a>
+        <span className="footer-sep">·</span>
+        <span className="footer-text">Built with yt-dlp &amp; Playwright</span>
       </footer>
 
       <SettingsModal
