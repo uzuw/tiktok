@@ -7,17 +7,35 @@ import urllib.request
 
 import yt_dlp
 from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.cookies import clear_cookies, has_cookies, load_cookies, save_cookies
 from app.download_manager import enqueue, get_item, list_items, remove_item
-from app.extractor import extract_info, extract_profile, is_profile_url, is_video_url
+from app.extractor import extract_info, is_video_url
 from app.formats import pick_best_format
 from app.playwright_extractor import playwright_extract
 
 
 app = FastAPI(title="TikTok Downloader")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(static_dir):
+    app.mount("/assets", StaticFiles(directory=os.path.join(static_dir, "assets")), name="assets")
+    with open(os.path.join(static_dir, "index.html")) as f:
+        SPA_HTML = f.read()
+else:
+    SPA_HTML = None
 
 
 class ResolveRequest(BaseModel):
@@ -35,6 +53,8 @@ class CookieRequest(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
+    if SPA_HTML:
+        return HTMLResponse(SPA_HTML)
     return HTMLResponse(open("app/templates/index.html").read())
 
 
@@ -46,13 +66,7 @@ async def resolve_endpoint(req: ResolveRequest):
     loop = asyncio.get_event_loop()
 
     if not is_video_url(url):
-        if is_profile_url(url):
-            try:
-                result = await loop.run_in_executor(None, extract_profile, url, cookiefile)
-            except Exception as e:
-                raise HTTPException(status_code=502, detail=f"Profile extraction failed: {e}")
-            return result
-        raise HTTPException(status_code=400, detail="Not a valid TikTok URL")
+        raise HTTPException(status_code=400, detail="Not a valid TikTok video URL")
 
     info = None
     try:
@@ -161,6 +175,21 @@ async def queue_delete(item_id: str):
     return {"ok": True}
 
 
+@app.get("/queue/{item_id}/file")
+async def queue_file(item_id: str):
+    """Serve a completed queue item's file."""
+    item = get_item(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Queue item not found")
+    if item["status"] != "completed" or not item.get("file"):
+        raise HTTPException(status_code=400, detail="File not ready")
+    if not os.path.exists(item["file"]):
+        raise HTTPException(status_code=404, detail="File not found on disk")
+    fname = os.path.basename(item["file"])
+    return FileResponse(item["file"], filename=fname, media_type="video/mp4",
+                        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
 @app.get("/download")
 async def download_endpoint(url: str, format_id: str, bg: BackgroundTasks):
     """Download a TikTok video."""
@@ -192,20 +221,44 @@ async def download_endpoint(url: str, format_id: str, bg: BackgroundTasks):
             info = ydl.extract_info(url, download=True)
         return tmp, info.get("id", "video")
 
+    async def try_playwright() -> tuple[str, str]:
+        info = await playwright_extract(url, load_cookies())
+        pw_url = next(
+            (f["url"] for f in info.get("formats", [])
+             if f.get("format_id") in ("download_addr", "play_addr")),
+            "",
+        )
+        if not pw_url:
+            raise ValueError("No playable URL from Playwright")
+        return await loop.run_in_executor(None, download_direct, pw_url)
+
     tmp = None
     try:
         if format_id.startswith("http"):
             tmp, video_id = await loop.run_in_executor(None, download_direct, format_id)
         else:
-            tmp, video_id = await loop.run_in_executor(None, download_ytdlp)
+            try:
+                tmp, video_id = await loop.run_in_executor(None, download_ytdlp)
+            except Exception:
+                tmp, video_id = await try_playwright()
     except Exception as e:
         if tmp and os.path.exists(tmp):
             os.unlink(tmp)
-        raise HTTPException(status_code=502, detail=f"Download failed: {e}")
+        # Last resort: Playwright with fresh URL
+        if not format_id.startswith("http") or not isinstance(e, HTTPException):
+            try:
+                tmp, video_id = await try_playwright()
+            except Exception:
+                if tmp and os.path.exists(tmp):
+                    os.unlink(tmp)
+                raise HTTPException(status_code=502, detail=f"Download failed: {e}")
+        else:
+            raise HTTPException(status_code=502, detail=f"Download failed: {e}")
 
     bg.add_task(os.unlink, tmp)
     filename = f"tiktok_{video_id}.mp4"
-    return FileResponse(tmp, filename=filename, media_type="video/mp4")
+    return FileResponse(tmp, filename=filename, media_type="video/mp4",
+                        headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
 if __name__ == "__main__":

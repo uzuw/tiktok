@@ -1,0 +1,19 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: SaveTok
+      - generic [ref=e7]: TikTok Video Downloader
+    - generic [ref=e8]:
+      - generic "No cookies" [ref=e9]
+      - button "Toggle theme" [ref=e11] [cursor=pointer]
+      - button "Settings" [ref=e14] [cursor=pointer]
+  - main [ref=e18]:
+    - generic [ref=e19]:
+      - heading "SaveTok" [level=1] [ref=e20]
+      - paragraph [ref=e21]: Download TikTok videos in best quality, fast and free.
+    - generic [ref=e22]:
+      - textbox "Paste TikTok video or profile URL..." [active] [ref=e27]
+      - button [disabled] [ref=e28]
+  - contentinfo [ref=e31]:
+    - link "SaveTok" [ref=e32] [cursor=pointer]:
+      - /url: https://github.com
