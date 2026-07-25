@@ -3,9 +3,9 @@
 import asyncio
 import os
 import tempfile
-import urllib.request
 
 import yt_dlp
+from curl_cffi import requests as cffi_requests
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.cookies import clear_cookies, has_cookies, load_cookies, save_cookies
-from app.download_manager import enqueue, get_item, list_items, remove_item
+from app.download_manager import clear_queue, enqueue, get_item, list_items, remove_item
 from app.extractor import extract_info, is_video_url
 from app.formats import pick_best_format
 from app.playwright_extractor import playwright_extract
@@ -167,11 +167,18 @@ async def queue_item(item_id: str):
     return item
 
 
+@app.delete("/queue")
+async def queue_clear():
+    """Clear all queue items."""
+    count = clear_queue()
+    return {"ok": True, "cleared": count}
+
+
 @app.delete("/queue/{item_id}")
 async def queue_delete(item_id: str):
-    """Remove a pending queue item."""
+    """Remove a queue item."""
     if not remove_item(item_id):
-        raise HTTPException(status_code=404, detail="Item not found or already processing")
+        raise HTTPException(status_code=404, detail="Item not found")
     return {"ok": True}
 
 
@@ -181,12 +188,12 @@ async def queue_file(item_id: str):
     item = get_item(item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Queue item not found")
-    if item["status"] != "completed" or not item.get("file"):
+    if item["status"] != "completed" or not item.get("file_path"):
         raise HTTPException(status_code=400, detail="File not ready")
-    if not os.path.exists(item["file"]):
+    if not os.path.exists(item["file_path"]):
         raise HTTPException(status_code=404, detail="File not found on disk")
-    fname = os.path.basename(item["file"])
-    return FileResponse(item["file"], filename=fname, media_type="video/mp4",
+    fname = os.path.basename(item["file_path"])
+    return FileResponse(item["file_path"], filename=fname, media_type="video/mp4",
                         headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
@@ -201,7 +208,10 @@ async def download_endpoint(url: str, format_id: str, bg: BackgroundTasks):
     def download_direct(src: str) -> str:
         fd, tmp = tempfile.mkstemp(suffix=".mp4")
         os.close(fd)
-        urllib.request.urlretrieve(src, tmp)
+        resp = cffi_requests.get(src, impersonate="chrome")
+        resp.raise_for_status()
+        with open(tmp, "wb") as f:
+            f.write(resp.content)
         return tmp, "video"
 
     def download_ytdlp() -> tuple[str, str]:

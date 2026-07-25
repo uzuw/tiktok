@@ -6,10 +6,12 @@ import uuid
 from pathlib import Path
 
 import yt_dlp
+from curl_cffi import requests as cffi_requests
 
 from app.cookies import load_cookies
 from app.database import (
     claim_pending,
+    clear_items as db_clear,
     get_item as db_get_item,
     insert_item,
     list_items as db_list_items,
@@ -49,6 +51,10 @@ def remove_item(item_id: str) -> bool:
     return db_remove(item_id)
 
 
+def clear_queue() -> int:
+    return db_clear()
+
+
 def _worker():
     while True:
         item = claim_pending()
@@ -73,8 +79,15 @@ def _worker():
             opts["cookiefile"] = cookiefile
 
         try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=True)
+            if fmt.startswith("http"):
+                resp = cffi_requests.get(fmt, impersonate="chrome")
+                resp.raise_for_status()
+                with open(dest, "wb") as f:
+                    f.write(resp.content)
+                info = {"id": item_id}
+            else:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
             update_item(item_id, status="completed", video_id=info.get("id", ""), file_path=dest)
         except Exception as e:
             update_item(item_id, status="failed", error=str(e))

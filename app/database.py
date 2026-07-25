@@ -92,8 +92,14 @@ def claim_pending() -> dict | None:
 
 def remove_item(item_id: str) -> bool:
     with _conn() as conn:
-        cur = conn.execute("DELETE FROM queue_items WHERE id=? AND status='pending'", (item_id,))
+        cur = conn.execute("DELETE FROM queue_items WHERE id=?", (item_id,))
         return cur.rowcount > 0
+
+
+def clear_items() -> int:
+    with _conn() as conn:
+        cur = conn.execute("DELETE FROM queue_items")
+        return cur.rowcount
 
 
 def pending_count() -> int:
