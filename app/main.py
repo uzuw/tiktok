@@ -16,7 +16,7 @@ from app.cookies import clear_cookies, has_cookies, load_cookies, save_cookies
 from app.download_manager import clear_queue, enqueue, get_item, list_items, remove_item
 from app.extractor import extract_info, is_video_url
 from app.formats import pick_best_format
-from app.playwright_extractor import playwright_extract
+from app.playwright_extractor import CDN_HEADERS, get_session_cookies, playwright_extract
 
 
 app = FastAPI(title="TikTok Downloader")
@@ -58,6 +58,16 @@ async def index():
     return HTMLResponse(open("app/templates/index.html").read())
 
 
+@app.get("/favicon.svg", include_in_schema=False)
+async def favicon():
+    """Vite emits public/favicon.svg to the static root, but only /assets is
+    mounted through StaticFiles — serve the icon explicitly."""
+    path = os.path.join(static_dir, "favicon.svg")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(path, media_type="image/svg+xml")
+
+
 @app.post("/resolve")
 async def resolve_endpoint(req: ResolveRequest):
     """Resolve a TikTok URL into metadata + best-quality format_id."""
@@ -85,14 +95,16 @@ async def resolve_endpoint(req: ResolveRequest):
     is_playwright = info.get("_source") == "playwright"
 
     if is_playwright:
+        # Prefer play_addr: download_addr is signed for a session token the CDN
+        # rejects for server-side fetches, so it 403s even with the cookie jar.
         format_id = ""
         for f in formats:
-            if f.get("format_id") == "download_addr":
+            if f.get("format_id") == "play_addr":
                 format_id = f["url"]
                 break
         if not format_id:
             for f in formats:
-                if f.get("format_id") == "play_addr":
+                if f.get("format_id") == "download_addr":
                     format_id = f["url"]
                     break
         return {
@@ -208,7 +220,14 @@ async def download_endpoint(url: str, format_id: str, bg: BackgroundTasks):
     def download_direct(src: str) -> str:
         fd, tmp = tempfile.mkstemp(suffix=".mp4")
         os.close(fd)
-        resp = cffi_requests.get(src, impersonate="chrome")
+        # The CDN URL is signed for the browser session that produced it, so it
+        # needs that session's cookies plus the usual Referer/UA.
+        resp = cffi_requests.get(
+            src,
+            headers=CDN_HEADERS,
+            cookies=get_session_cookies(),
+            impersonate="chrome",
+        )
         resp.raise_for_status()
         with open(tmp, "wb") as f:
             f.write(resp.content)

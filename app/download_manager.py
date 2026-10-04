@@ -9,6 +9,7 @@ import yt_dlp
 from curl_cffi import requests as cffi_requests
 
 from app.cookies import load_cookies
+from app.playwright_extractor import CDN_HEADERS, get_session_cookies
 from app.database import (
     claim_pending,
     clear_items as db_clear,
@@ -55,42 +56,53 @@ def clear_queue() -> int:
     return db_clear()
 
 
+def process_item(item: dict) -> None:
+    """Run one queue item to completion, recording the outcome in the DB."""
+    item_id = item["id"]
+    url = item["url"]
+    fmt = item["format_id"]
+    dest = str(QUEUE_DIR / f"{item_id}.mp4")
+
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "outtmpl": dest,
+    }
+    if fmt:
+        opts["format"] = fmt
+    cookiefile = load_cookies()
+    if cookiefile:
+        opts["cookiefile"] = cookiefile
+
+    try:
+        if fmt.startswith("http"):
+            # Same signed-URL rules as /download: the CDN wants the cookies
+            # from the browser session that minted this URL.
+            resp = cffi_requests.get(
+                fmt,
+                headers=CDN_HEADERS,
+                cookies=get_session_cookies(),
+                impersonate="chrome",
+            )
+            resp.raise_for_status()
+            with open(dest, "wb") as f:
+                f.write(resp.content)
+            info = {"id": item_id}
+        else:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+        update_item(item_id, status="completed", video_id=info.get("id", ""), file_path=dest)
+    except Exception as e:
+        update_item(item_id, status="failed", error=str(e))
+
+
 def _worker():
     while True:
         item = claim_pending()
         if item is None:
             threading.Event().wait(1)
             continue
-
-        item_id = item["id"]
-        url = item["url"]
-        fmt = item["format_id"]
-        dest = str(QUEUE_DIR / f"{item_id}.mp4")
-
-        opts = {
-            "quiet": True,
-            "no_warnings": True,
-            "outtmpl": dest,
-        }
-        if fmt:
-            opts["format"] = fmt
-        cookiefile = load_cookies()
-        if cookiefile:
-            opts["cookiefile"] = cookiefile
-
-        try:
-            if fmt.startswith("http"):
-                resp = cffi_requests.get(fmt, impersonate="chrome")
-                resp.raise_for_status()
-                with open(dest, "wb") as f:
-                    f.write(resp.content)
-                info = {"id": item_id}
-            else:
-                with yt_dlp.YoutubeDL(opts) as ydl:
-                    info = ydl.extract_info(url, download=True)
-            update_item(item_id, status="completed", video_id=info.get("id", ""), file_path=dest)
-        except Exception as e:
-            update_item(item_id, status="failed", error=str(e))
+        process_item(item)
 
 
 reset_stale_downloading()

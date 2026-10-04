@@ -12,6 +12,36 @@ _browser: Browser | None = None
 _playwright = None
 _lock = asyncio.Lock()
 
+# Cookies TikTok's CDN requires. Its media URLs are signed for the browser
+# session that minted them — the URL's own `policy` parameter names the
+# `tt_chain_token` cookie — so a server-side fetch without the jar that
+# produced the URL gets 403 from TikTok's edge. Harvested on every extraction.
+_session_cookies: dict[str, str] = {}
+
+# Headers the CDN also checks for. Sent with every direct media request.
+CDN_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    ),
+    "Referer": "https://www.tiktok.com/",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept": "*/*",
+}
+
+
+def get_session_cookies() -> dict[str, str]:
+    """Cookies from the most recent browser extraction (may be empty)."""
+    return dict(_session_cookies)
+
+
+async def _harvest_cookies(context) -> None:
+    global _session_cookies
+    try:
+        _session_cookies = {c["name"]: c["value"] for c in await context.cookies()}
+    except Exception:
+        pass
+
 
 def _find_video_data(data: dict) -> dict | None:
     """Dig through the universal data blob to find the video item.
@@ -150,15 +180,22 @@ async def playwright_extract(url: str, cookies_file: str | None = None) -> dict[
         except Exception:
             item = await _try_api_fetch(page, url)
             if item:
+                await _harvest_cookies(context)
                 return _build_result(item)
             raise ValueError("Video data not found on page")
 
-        # Extract universal data
+        # Extract universal data. TikTok serves truncated/partial blobs on
+        # challenge pages, so a parse failure is expected — fall through to the
+        # API fetch rather than surfacing a raw JSONDecodeError.
         universal_raw = await page.evaluate(
             "() => document.getElementById('__UNIVERSAL_DATA_FOR_REHYDRATION__').textContent"
         )
-        universal_data = json.loads(universal_raw)
-        item = _find_video_data(universal_data)
+        try:
+            universal_data = json.loads(universal_raw)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            universal_data = None
+
+        item = _find_video_data(universal_data) if universal_data else None
         if not item:
             # Page data was unavailable (statusCode != 0) — try API directly
             item = await _try_api_fetch(page, url)
@@ -166,6 +203,7 @@ async def playwright_extract(url: str, cookies_file: str | None = None) -> dict[
         if not item:
             raise ValueError("Could not locate video item in universal data")
 
+        await _harvest_cookies(context)
         return _build_result(item)
 
     finally:
