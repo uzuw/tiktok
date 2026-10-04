@@ -1,11 +1,38 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { FiGithub, FiMonitor, FiShield, FiZap } from "react-icons/fi";
-import { authStatus, enqueue, resolveVideo } from "./api";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  DownloadSimple,
+  GearSix,
+  LinkSimple,
+  LockSimple,
+  Moon,
+  Question,
+  ShieldCheck,
+  Sparkle,
+  Sun,
+  WarningCircle,
+} from "@phosphor-icons/react";
+import { authStatus, clearQueue, enqueue, resolveVideo } from "./api";
+import BrandMark from "./components/BrandMark";
+import CommandPalette from "./components/CommandPalette";
 import Navbar from "./components/Navbar";
 import QueuePanel from "./components/QueuePanel";
+import ResultSkeleton from "./components/ResultSkeleton";
 import SearchBar from "./components/SearchBar";
 import SettingsModal from "./components/SettingsModal";
 import VideoResult from "./components/VideoResult";
+import "./App.css";
+
+const FACTS = [
+  [ShieldCheck, "No watermark"],
+  [Sparkle, "Highest quality"],
+  [LockSimple, "Stays on your machine"],
+];
+
+const STEPS = [
+  [LinkSimple, "Paste a link", "Drop in any TikTok video URL. Nothing is saved until you ask for it."],
+  [Sparkle, "We find the best copy", "SaveTok reads the format list and keeps the highest resolution that isn't watermarked."],
+  [DownloadSimple, "Download or queue", "Take the file straight away, or line up several and let the queue work through them."],
+];
 
 function getInitialTheme() {
   const saved = localStorage.getItem("savetok-theme");
@@ -18,9 +45,12 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
-  const lastUrl = useRef("");
+  const [queueCount, setQueueCount] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const lastUrl = useRef("");
+  const inputRef = useRef(null);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -33,7 +63,69 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+  useEffect(() => {
+    const onKey = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setShowPalette((open) => !open);
+        return;
+      }
+
+      // "/" jumps to the paste field, unless the user is already typing
+      const typing = /^(input|textarea|select)$/i.test(event.target?.tagName ?? "");
+      if (event.key === "/" && !typing && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const toggleTheme = useCallback(() => setTheme((t) => (t === "dark" ? "light" : "dark")), []);
+
+  const focusInput = useCallback(() => {
+    inputRef.current?.focus();
+    inputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, []);
+
+  const paletteActions = useMemo(
+    () => [
+      { id: "paste", label: "Paste a link", hint: "/", icon: LinkSimple, run: focusInput },
+      {
+        id: "theme",
+        label: `Switch to ${theme === "dark" ? "light" : "dark"} mode`,
+        keywords: ["dark", "light", "appearance"],
+        icon: theme === "dark" ? Sun : Moon,
+        run: toggleTheme,
+      },
+      {
+        id: "cookies",
+        label: "Session cookies",
+        keywords: ["auth", "login"],
+        icon: GearSix,
+        run: () => setShowSettings(true),
+      },
+      {
+        id: "how",
+        label: "How it works",
+        icon: Question,
+        run: () => document.getElementById("how")?.scrollIntoView({ block: "start" }),
+      },
+      ...(queueCount > 0
+        ? [
+            {
+              id: "clear-queue",
+              label: "Clear the queue",
+              keywords: ["reset", "remove"],
+              icon: WarningCircle,
+              run: () => clearQueue().catch(() => {}),
+            },
+          ]
+        : []),
+    ],
+    [theme, queueCount, toggleTheme, focusInput]
+  );
 
   const handleResolve = useCallback(async (url) => {
     setLoading(true);
@@ -59,85 +151,104 @@ export default function App() {
     }
   }, []);
 
-  return (
-    <div className="app">
-      <div className="grid-dots" aria-hidden="true" />
-      <div className="glow-blob glow-blob-1" aria-hidden="true" />
-      <div className="glow-blob glow-blob-2" aria-hidden="true" />
-      <div className="glow-blob glow-blob-3" aria-hidden="true" />
+  const status = loading
+    ? { dot: "dot--busy", label: "Fetching formats…" }
+    : error
+      ? { dot: "dot--bad", label: "Couldn't resolve that link" }
+      : { dot: "dot--ok", label: "Ready" };
 
+  return (
+    <div className="app" id="top">
       <Navbar
         theme={theme}
         onToggleTheme={toggleTheme}
         onOpenSettings={() => setShowSettings(true)}
+        onOpenPalette={() => setShowPalette(true)}
         authenticated={authenticated}
+        queueCount={queueCount}
       />
 
-      <main className="main">
-        <div className="hero">
-          <h1 className="hero-title hero-title-gradient">SaveTok</h1>
-          <p className="hero-subtitle">
-            Download TikTok videos instantly in the best available quality.
-            No watermarks, no sign-up, no fuss.
-          </p>
-          <div className="feature-pills">
-            <span className="feature-pill">
-              <FiZap size={12} /> Instant resolve
+      <main>
+        <section className="hero">
+          <div className="shell hero-inner">
+            <span className="badge hero-badge" role="status">
+              <span className={`dot ${status.dot}`} aria-hidden="true" />
+              {status.label}
             </span>
-            <span className="feature-pill">
-              <FiShield size={12} /> No watermarks
-            </span>
-            <span className="feature-pill">
-              <FiMonitor size={12} /> Best quality
-            </span>
+
+            <h1 className="display hero-title">Paste a link, keep the video.</h1>
+            <p className="lede hero-lede">
+              SaveTok runs on your own machine and saves the highest-resolution copy of any TikTok
+              video. No watermark, no account, nothing sent anywhere else.
+            </p>
+
+            <div className="hero-field">
+              <SearchBar onResolve={handleResolve} loading={loading} inputRef={inputRef} />
+            </div>
+
+            {error && (
+              <p className="error-note" role="alert">
+                <WarningCircle size={17} aria-hidden="true" />
+                <span>{error}</span>
+              </p>
+            )}
+
+            <ul className="facts">
+              {FACTS.map(([Icon, label]) => (
+                <li key={label} className="chip">
+                  <Icon size={15} aria-hidden="true" />
+                  {label}
+                </li>
+              ))}
+            </ul>
           </div>
+        </section>
+
+        <div className="shell result-stack">
+          {loading && <ResultSkeleton />}
+          {!loading && result && <VideoResult video={result} onQueue={handleQueueVideo} />}
+          <QueuePanel onCount={setQueueCount} />
         </div>
 
-        <SearchBar onResolve={handleResolve} loading={loading} />
-
-        {error && <p className="error-msg fade-in">{error}</p>}
-
-        {result && <VideoResult video={result} onQueue={handleQueueVideo} />}
-
-        <div className="how-it-works">
-          <h2 className="how-title">How it works</h2>
-          <div className="how-steps">
-            <div className="how-step">
-              <span className="how-step-num">1</span>
-              <span className="how-step-text">
-                <strong>Paste</strong> any TikTok video link above
-              </span>
-            </div>
-            <div className="how-step">
-              <span className="how-step-num">2</span>
-              <span className="how-step-text">
-                <strong>Resolve</strong> picks the highest quality format
-              </span>
-            </div>
-            <div className="how-step">
-              <span className="how-step-num">3</span>
-              <span className="how-step-text">
-                <strong>Download</strong> or queue it for later
-              </span>
-            </div>
+        <section className="shell how" id="how">
+          <h2 className="h2">How it works</h2>
+          <div className="how-grid">
+            {STEPS.map(([Icon, title, body]) => (
+              <div className="how-item" key={title}>
+                <span className="how-icon">
+                  <Icon size={18} weight="bold" />
+                </span>
+                <h3 className="how-title">{title}</h3>
+                <p className="how-body">{body}</p>
+              </div>
+            ))}
           </div>
-        </div>
-
-        <QueuePanel />
+        </section>
       </main>
 
-      <footer className="footer">
-        <a href="https://github.com" target="_blank" rel="noopener" className="footer-link">
-          <FiGithub size={14} /> SaveTok
-        </a>
-        <span className="footer-sep">·</span>
-        <span className="footer-text">Built with yt-dlp &amp; Playwright</span>
+      <footer className="foot">
+        <div className="shell foot-inner">
+          <span className="foot-brand">
+            <BrandMark size={16} />
+            <span>SaveTok</span>
+          </span>
+          <p className="foot-note">
+            Runs locally with yt-dlp and Playwright. Press{" "}
+            <span className="kbd">⌘</span> <span className="kbd">K</span> for commands.
+          </p>
+        </div>
       </footer>
 
       <SettingsModal
         open={showSettings}
         onClose={() => setShowSettings(false)}
         onAuthChange={setAuthenticated}
+      />
+
+      <CommandPalette
+        open={showPalette}
+        onClose={() => setShowPalette(false)}
+        actions={paletteActions}
       />
     </div>
   );

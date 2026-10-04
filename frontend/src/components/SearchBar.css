@@ -1,0 +1,35 @@
+.search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  width: 100%;
+}
+
+.search-submit {
+  flex: none;
+  min-height: 40px;
+  padding-inline: var(--s4);
+}
+
+/* Reserve the bar's space so the layout never jumps when loading starts */
+.search-progress {
+  height: 2px;
+  margin-inline: var(--s5);
+}
+
+.search-hint {
+  color: var(--ink-3);
+  font-size: var(--fs-small);
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  .search-submit-label {
+    display: none;
+  }
+
+  .search-submit {
+    min-width: 40px;
+    padding-inline: 0;
+  }
+}

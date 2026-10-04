@@ -1,18 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
-import { FiAlertCircle, FiCheck, FiDownload, FiLoader, FiTrash2, FiX } from "react-icons/fi";
+import { DownloadSimple, Trash, X } from "@phosphor-icons/react";
 import { clearQueue, listQueue, removeQueueItem } from "../api";
-
-const STATUS_ICONS = {
-  pending: null,
-  downloading: <FiLoader className="spin" size={14} />,
-  completed: <FiCheck size={14} />,
-  failed: <FiAlertCircle size={14} />,
-};
+import Button from "./Button";
+import "./QueuePanel.css";
 
 const ACTIVE_STATUSES = new Set(["pending", "downloading"]);
 
-export default function QueuePanel() {
+const STATUS_LABEL = {
+  pending: "Waiting",
+  downloading: "Downloading",
+  completed: "Saved",
+  failed: "Failed",
+};
+
+const STATUS_DOT = {
+  pending: "dot--idle",
+  downloading: "dot--busy",
+  completed: "dot--ok",
+  failed: "dot--bad",
+};
+
+const REMOVE_MS = 170;
+
+export default function QueuePanel({ onCount }) {
   const [items, setItems] = useState([]);
+  const [removingId, setRemovingId] = useState(null);
   const hasActive = items.some((item) => ACTIVE_STATUSES.has(item.status));
 
   useEffect(() => {
@@ -35,13 +47,19 @@ export default function QueuePanel() {
     };
   }, [hasActive]);
 
-  const handleRemove = async (id) => {
-    try {
-      await removeQueueItem(id);
+  useEffect(() => {
+    onCount?.(items.length);
+  }, [items.length, onCount]);
+
+  // Collapse the row first, then drop it. The poll resyncs if the delete failed.
+  const handleRemove = (id) => {
+    if (removingId) return;
+    setRemovingId(id);
+    removeQueueItem(id).catch(() => {});
+    window.setTimeout(() => {
       setItems((prev) => prev.filter((item) => item.id !== id));
-    } catch {
-      // leave item in place if removal failed
-    }
+      setRemovingId(null);
+    }, REMOVE_MS);
   };
 
   const handleClear = async () => {
@@ -53,75 +71,74 @@ export default function QueuePanel() {
     }
   };
 
-  const counts = useMemo(() => {
-    return items.reduce(
-      (acc, item) => {
-        acc[item.status] = (acc[item.status] || 0) + 1;
-        return acc;
-      },
-      { pending: 0, downloading: 0, completed: 0, failed: 0 }
-    );
-  }, [items]);
+  const activeCount = useMemo(
+    () => items.filter((item) => ACTIVE_STATUSES.has(item.status)).length,
+    [items]
+  );
 
   if (items.length === 0) return null;
 
   return (
-    <div className="queue-panel fade-in">
-      <div className="queue-header">
-        <span className="queue-title">Queue</span>
-        <div className="queue-badges">
-          {counts.pending > 0 && (
-            <span className="badge badge-pending">{counts.pending} pending</span>
-          )}
-          {counts.downloading > 0 && (
-            <span className="badge badge-downloading">{counts.downloading} downloading</span>
-          )}
-          {counts.completed > 0 && (
-            <span className="badge badge-completed">{counts.completed} done</span>
-          )}
-          {counts.failed > 0 && (
-            <span className="badge badge-failed">{counts.failed} failed</span>
-          )}
-          <button className="btn-icon danger" onClick={handleClear} aria-label="Clear all" title="Clear all">
-            <FiTrash2 size={14} />
-          </button>
+    <section className="queue panel" id="queue" aria-label="Download queue">
+      <div className="panel-head">
+        <div className="queue-heading">
+          <h2 className="panel-title">Queue</h2>
+          <span className="chip queue-count">
+            {activeCount > 0 ? `${activeCount} in progress` : `${items.length} waiting`}
+          </span>
         </div>
+        <Button variant="ghost" className="queue-clear" onClick={handleClear}>
+          <Trash size={15} />
+          <span>Clear</span>
+        </Button>
       </div>
 
-      <div className="queue-list">
+      <ul className="queue-list">
         {items.map((item) => (
-          <div className={`queue-item queue-${item.status}`} key={item.id}>
-            <div className="queue-item-id" title={item.id}>
-              {item.video_id || item.id.slice(0, 8)}
-            </div>
+          <li
+            key={item.id}
+            className={`qrow surface ${removingId === item.id ? "is-removing" : ""}`}
+          >
+            <span className={`dot ${STATUS_DOT[item.status] ?? ""}`} aria-hidden="true" />
 
-            <div className="queue-item-status">
-              <span className={`status-icon status-${item.status}`}>
-                {STATUS_ICONS[item.status]}
-              </span>
-              <span className="status-text">{item.status}</span>
-            </div>
+            <span className="qrow-main">
+              <span className="qrow-name mono">{item.video_id || item.id.slice(0, 8)}</span>
+              {item.status === "failed" && item.error ? (
+                <span className="qrow-error" title={item.error}>
+                  {item.error}
+                </span>
+              ) : (
+                <span className="qrow-status">{STATUS_LABEL[item.status] ?? item.status}</span>
+              )}
+            </span>
 
-            <div className="queue-item-action">
+            <span className="qrow-actions row-actions">
               {item.status === "completed" && item.file_path && (
-                <a className="download-link" href={`/queue/${item.id}/file`} aria-label="Download file" title="Download file">
-                  <FiDownload size={14} />
-                </a>
+                <Button
+                  as="a"
+                  variant="secondary"
+                  className="qrow-btn"
+                  href={`/queue/${item.id}/file`}
+                  aria-label="Download file"
+                >
+                  <DownloadSimple size={15} />
+                  <span>Save</span>
+                </Button>
               )}
-              {item.status === "pending" && (
-                <button className="btn-icon danger" onClick={() => handleRemove(item.id)} aria-label="Remove" title="Remove">
-                  <FiX size={14} />
-                </button>
+              {(item.status === "pending" || item.status === "failed") && (
+                <Button
+                  variant="ghost"
+                  className="qrow-btn btn--icon"
+                  onClick={() => handleRemove(item.id)}
+                  aria-label={item.status === "failed" ? "Dismiss" : "Remove from queue"}
+                >
+                  <X size={15} />
+                </Button>
               )}
-              {item.status === "failed" && (
-                <button className="btn-icon" onClick={() => handleRemove(item.id)} aria-label="Dismiss" title="Dismiss">
-                  <FiX size={14} />
-                </button>
-              )}
-            </div>
-          </div>
+            </span>
+          </li>
         ))}
-      </div>
-    </div>
+      </ul>
+    </section>
   );
 }

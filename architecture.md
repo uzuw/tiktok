@@ -56,22 +56,54 @@ yt-dlp returns 6-9 formats per video. Most are chunk-split variants (-0, -1 suff
 tiktok/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py          # FastAPI app, routes
-│   ├── extractor.py     # yt-dlp wrapper (resolve, download helpers)
-│   ├── formats.py       # Format normalization logic
-│   └── templates/
-│       └── index.html   # Single-page frontend
-├── phase0_test.py       # Throwaway feasibility script
+│   ├── main.py               # FastAPI app, routes
+│   ├── extractor.py          # yt-dlp wrapper (resolve, download helpers)
+│   ├── formats.py            # Format normalization logic
+│   ├── playwright_extractor.py  # headless-Chromium fallback extractor
+│   ├── download_manager.py   # queue worker thread
+│   ├── database.py           # SQLite queue store
+│   ├── cookies.py            # TikTok cookie file handling
+│   └── static/               # BUILD OUTPUT (committed) — vite writes here
+├── frontend/                 # React 19 + Vite source
+│   ├── src/
+│   │   ├── App.jsx
+│   │   ├── components/       # Navbar, SearchBar, VideoResult, QueuePanel, …
+│   │   ├── styles/           # tokens.css, base.css
+│   │   └── assets/           # generated halftone art (scripts/gen-art.mjs)
+│   └── scripts/gen-art.mjs    # regenerates the dither SVGs
+├── tests/                    # pytest suite
+├── phase0_test.py            # Throwaway feasibility script
 ├── requirements.txt
-├── docker-compose.yml   # Phase 6
-├── Dockerfile           # Phase 6
+├── requirements-dev.txt
+├── docker-compose.yml        # Phase 6
+├── Dockerfile                # Phase 6
 ├── AGENT.md
 ├── architecture.md
 ├── phases.md
 └── plans.md
 ```
 
+### Frontend build
+`npm run build` inside `frontend/` writes to `app/static` (`emptyOutDir`). FastAPI reads
+`app/static/index.html` **once at import**, so the server must be restarted after every
+rebuild — the asset filenames are content-hashed and the old ones are deleted.
+
+### Design system
+Reference language: bencho.dev and obsidianui.dev. `frontend/src/styles/tokens.css` holds a
+white canvas (`--bg`), grey-fill panels (`--panel`, `--panel-2`) used for depth instead of
+shadows, and colour reserved strictly for status (`--ok`, `--bad`, `--busy`). Type is Inter
+and Inter Tight (display) with Geist Mono for machine strings, all self-hosted through
+`@fontsource-variable`.
+
+There is deliberately **no animation library**. The micro-interactions live in
+`styles/base.css`: the 0.97 press, the leading-icon nudge, key hints that depress while
+⌘/Ctrl is held, a shimmer skeleton plus indeterminate bar instead of a spinner, and row
+actions that fade in on hover. ⌘K opens `components/CommandPalette.jsx`, which is a view
+over real app actions supplied by `App.jsx`.
+
 ## Dependencies (current)
 - `yt-dlp` + `curl_cffi` (for TikTok impersonation)
-- `fastapi` + `uvicorn`
-- `httpx` or `aiohttp` (for proxying download bytes)
+- `fastapi` + `uvicorn` + `jinja2`
+- `playwright` (headless Chromium fallback extractor)
+- Frontend: `react`, `@phosphor-icons/react`, `@fontsource-variable/inter`, `@fontsource-variable/inter-tight`, `@fontsource-variable/geist-mono`
+- Dev: `pytest` + `httpx` (see `requirements-dev.txt`)

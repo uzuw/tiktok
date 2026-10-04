@@ -1,10 +1,12 @@
-import { FiClock, FiDownload, FiList } from "react-icons/fi";
+import { DownloadSimple, Plus } from "@phosphor-icons/react";
 import { downloadUrl } from "../api";
+import Button from "./Button";
+import "./VideoResult.css";
 
-function formatDuration(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
+function timecode(totalSeconds) {
+  const seconds = Math.max(0, Math.round(Number(totalSeconds) || 0));
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
 export default function VideoResult({ video, onQueue }) {
@@ -16,38 +18,33 @@ export default function VideoResult({ video, onQueue }) {
   const dlUrl = downloadUrl(sourceUrl, video.format_id);
 
   return (
-    <div className="video-result fade-in">
-      <div className="video-thumb-wrap">
-        <img
-          className="video-thumb"
-          src={video.thumbnail || ""}
-          alt={video.caption ? `Thumbnail for ${video.caption}` : "Video thumbnail"}
-          loading="lazy"
-        />
-        {video.duration > 0 && (
-          <span className="duration-badge">
-            <FiClock size={12} aria-hidden="true" /> {formatDuration(video.duration)}
-          </span>
-        )}
-      </div>
+    <article className="result panel">
+      <div className="result-body">
+        <div className="result-thumb">
+          {video.thumbnail && <img src={video.thumbnail} alt="" loading="lazy" />}
+        </div>
 
-      <div className="video-info">
-        {video.author && <span className="video-author">{video.author}</span>}
-        <p className="video-caption">{video.caption || "No description"}</p>
-      </div>
+        <div className="result-meta">
+          <div className="result-tags">
+            <span className="chip">MP4</span>
+            {video.duration > 0 && <span className="chip">{timecode(video.duration)}</span>}
+          </div>
+          <h2 className="result-author">{video.author || "TikTok video"}</h2>
+          <p className="result-caption">{video.caption || "No description"}</p>
+          <p className="result-id mono">{video.id}</p>
+        </div>
 
-      <div className="video-actions">
-        <a href={dlUrl} className="btn btn-primary" title="Download this video">
-          <FiDownload size={16} aria-hidden="true" /> Download
-        </a>
-        <button
-          className="btn btn-secondary"
-          onClick={() => onQueue(video.format_id)}
-          title="Add to queue"
-        >
-          <FiList size={16} aria-hidden="true" /> Queue
-        </button>
+        <div className="result-actions">
+          <Button as="a" variant="primary" href={dlUrl}>
+            <DownloadSimple size={16} weight="bold" />
+            <span>Download</span>
+          </Button>
+          <Button variant="secondary" onClick={() => onQueue(video.format_id)}>
+            <Plus size={16} weight="bold" />
+            <span>Queue</span>
+          </Button>
+        </div>
       </div>
-    </div>
+    </article>
   );
 }

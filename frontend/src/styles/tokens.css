@@ -1,0 +1,96 @@
+/* ── SaveTok tokens ────────────────────────────────────────────────────────
+   Reference language (bencho.dev / obsidianui.dev): a white canvas, grey-fill
+   panels instead of shadows, pill controls, tight negative tracking on display
+   type, and colour reserved for status. Depth comes from fill contrast, not
+   gradients or glow.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: light;
+
+  --bg: #ffffff;
+  --panel: #f2f2f2;
+  --panel-2: #e8e8e8;
+  --surface: #ffffff;
+
+  --ink: #17181a;
+  --ink-2: #6b7280;
+  --ink-3: #9ca3af;
+
+  --line: #ececec;
+  --line-2: #dcdcdc;
+
+  --ok: #16a34a;
+  --busy: #17181a;
+  --bad: #dc2626;
+
+  --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Inter Tight Variable", "Inter Variable", "Inter", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular", monospace;
+
+  --fs-display: clamp(2.625rem, 5.4vw, 4.5rem);
+  --fs-h2: clamp(1.5rem, 2.2vw, 1.875rem);
+  --fs-h3: 1.0625rem;
+  --fs-body: 1rem;
+  --fs-small: 0.875rem;
+  --fs-xs: 0.8125rem;
+
+  --track-display: -0.045em;
+  --track-h2: -0.032em;
+  --track-body: -0.011em;
+
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 28px;
+  --s7: 40px;
+  --s8: 56px;
+  --s9: 80px;
+  --s10: 112px;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-xl: 26px;
+  --r-pill: 999px;
+
+  --sh-1: 0 1px 2px rgba(23, 24, 26, 0.05), 0 1px 1px rgba(23, 24, 26, 0.03);
+  --sh-2: 0 6px 20px -6px rgba(23, 24, 26, 0.12), 0 1px 2px rgba(23, 24, 26, 0.05);
+  --sh-3: 0 28px 64px -24px rgba(23, 24, 26, 0.26), 0 2px 8px rgba(23, 24, 26, 0.06);
+
+  --ring: rgba(23, 24, 26, 0.1);
+
+  --maxw: 1120px;
+  --gutter: clamp(20px, 5vw, 48px);
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur: 160ms;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0c0c0d;
+  --panel: #191919;
+  --panel-2: #242426;
+  --surface: #151517;
+
+  --ink: #f4f4f5;
+  --ink-2: #a1a1aa;
+  --ink-3: #71717a;
+
+  --line: #26262a;
+  --line-2: #34343a;
+
+  --ok: #22c55e;
+  --busy: #f4f4f5;
+  --bad: #f87171;
+
+  --sh-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --sh-2: 0 6px 20px -6px rgba(0, 0, 0, 0.65);
+  --sh-3: 0 28px 64px -24px rgba(0, 0, 0, 0.85);
+
+  --ring: rgba(244, 244, 245, 0.14);
+}

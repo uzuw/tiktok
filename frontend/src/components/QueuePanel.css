@@ -1,0 +1,124 @@
+.queue {
+  padding: var(--s4) var(--s4) var(--s4);
+}
+
+.queue-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.queue-count {
+  padding: 5px 11px;
+  font-size: var(--fs-xs);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.queue-count:hover {
+  background: var(--surface);
+  scale: 1;
+}
+
+.queue-clear {
+  min-height: 34px;
+  padding-inline: var(--s3);
+  color: var(--ink-2);
+}
+
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.qrow {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s3) var(--s4);
+  animation: qrow-in 200ms var(--ease) both;
+}
+
+.qrow:hover .row-actions,
+.qrow:focus-within .row-actions {
+  opacity: 1;
+  translate: 0 0;
+}
+
+@keyframes qrow-in {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+}
+
+/* Leaving: collapse the row so the list closes up smoothly */
+.qrow.is-removing {
+  animation: qrow-out 170ms var(--ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes qrow-out {
+  to {
+    opacity: 0;
+    scale: 0.98;
+    margin-bottom: calc(-1 * (var(--s3) * 2 + 40px + var(--s2)));
+  }
+}
+
+.qrow-main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  min-width: 0;
+}
+
+.qrow-name {
+  color: var(--ink);
+  font-size: var(--fs-xs);
+}
+
+.qrow-status {
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  white-space: nowrap;
+}
+
+.qrow-error {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--bad);
+  font-size: var(--fs-xs);
+}
+
+.qrow-btn {
+  min-height: 32px;
+  padding-inline: var(--s3);
+  font-size: var(--fs-xs);
+}
+
+.qrow-btn.btn--icon {
+  min-width: 32px;
+  padding-inline: 0;
+}
+
+@media (max-width: 720px) {
+  .qrow {
+    grid-template-columns: 10px minmax(0, 1fr);
+    row-gap: var(--s2);
+  }
+
+  .qrow-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+    opacity: 1;
+    translate: 0 0;
+  }
+}

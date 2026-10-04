@@ -1,42 +1,57 @@
 import { useId, useState } from "react";
-import { FiArrowDown, FiLink, FiLoader } from "react-icons/fi";
+import { ArrowDown } from "@phosphor-icons/react";
+import Button from "./Button";
+import "./SearchBar.css";
 
-export default function SearchBar({ onResolve, loading }) {
+export default function SearchBar({ onResolve, loading, inputRef }) {
   const [url, setUrl] = useState("");
   const hintId = useId();
+  const inputId = `${hintId}-field`;
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = (event) => {
+    event.preventDefault();
     const trimmed = url.trim();
     if (trimmed) onResolve(trimmed);
   };
 
   return (
-    <form className="search-bar" onSubmit={handleSubmit}>
-      <div className="search-input-wrap">
-        <FiLink className="search-icon" size={16} aria-hidden="true" />
+    <form className="search" onSubmit={handleSubmit}>
+      <div className="field">
+        <label className="sr-only" htmlFor={inputId}>
+          TikTok video link
+        </label>
         <input
+          ref={inputRef}
+          id={inputId}
           type="url"
-          className="search-input"
-          placeholder="https://www.tiktok.com/@user/video/..."
+          className="field-input"
+          placeholder="Paste a TikTok video link"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onChange={(event) => setUrl(event.target.value)}
           aria-describedby={hintId}
           autoFocus
+          spellCheck="false"
+          autoComplete="off"
         />
+        <Button
+          variant="primary"
+          className="search-submit"
+          type="submit"
+          disabled={loading || !url.trim()}
+          aria-label={loading ? "Fetching download options" : "Fetch download options"}
+        >
+          <ArrowDown size={18} weight="bold" />
+          <span className="search-submit-label">Fetch</span>
+        </Button>
       </div>
 
-      <button
-        className="search-btn"
-        type="submit"
-        disabled={loading || !url.trim()}
-        aria-label={loading ? "Resolving video" : "Resolve video"}
-      >
-        {loading ? <FiLoader className="spin" size={18} /> : <FiArrowDown size={18} />}
-      </button>
+      {/* Indeterminate bar while resolving — replaces the classic spinner */}
+      <div className={`search-progress ${loading ? "is-loading" : ""}`} aria-hidden={!loading}>
+        {loading && <div className="progress" />}
+      </div>
 
       <p id={hintId} className="search-hint">
-        Paste any TikTok video link and hit enter
+        We&apos;ll fetch the available formats before saving anything.
       </p>
     </form>
   );

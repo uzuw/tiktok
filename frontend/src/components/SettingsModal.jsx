@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
-import { FiX, FiUpload, FiTrash2, FiCheck } from "react-icons/fi";
-import { authStatus, uploadCookies, clearCookies } from "../api";
+import { useEffect, useState } from "react";
+import { Trash, UploadSimple, X } from "@phosphor-icons/react";
+import { authStatus, clearCookies, uploadCookies } from "../api";
+import Button from "./Button";
+import "./SettingsModal.css";
 
 export default function SettingsModal({ open, onClose, onAuthChange }) {
   const [text, setText] = useState("");
@@ -10,11 +12,22 @@ export default function SettingsModal({ open, onClose, onAuthChange }) {
 
   useEffect(() => {
     if (open) {
-      authStatus().then((r) => setAuthed(r.authenticated)).catch(() => {});
+      authStatus()
+        .then((r) => setAuthed(r.authenticated))
+        .catch(() => {});
       setText("");
       setError("");
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
 
   const handleSave = async () => {
     if (!text.trim()) return;
@@ -36,51 +49,73 @@ export default function SettingsModal({ open, onClose, onAuthChange }) {
       setAuthed(false);
       setText("");
       onAuthChange(false);
-    } catch {}
+    } catch {
+      // leave state untouched if the request failed
+    }
   };
 
   if (!open) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span className="modal-title">Settings</span>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
-            <FiX size={18} />
-          </button>
+    <div className="modal-overlay" onMouseDown={onClose}>
+      <div
+        className="modal surface"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="modal-head">
+          <h2 className="panel-title" id="settings-title">
+            Session cookies
+          </h2>
+          <Button variant="ghost" className="btn--icon" onClick={onClose} aria-label="Close">
+            <X size={17} />
+          </Button>
         </div>
+
         <div className="modal-body">
-          <div className="setting-group">
-            <div className="setting-label">
-              <span>Cookies</span>
-              <span className={`auth-status ${authed ? "authed" : ""}`}>
-                {authed ? "Authenticated" : "Not authenticated"}
-              </span>
-            </div>
-            <p className="setting-desc">
-              Export your TikTok cookies in Netscape format and paste them below to access private or restricted content.
+          <span className="badge modal-status">
+            <span className={`dot ${authed ? "dot--ok" : "dot--idle"}`} aria-hidden="true" />
+            {authed ? "A cookie file is loaded" : "No cookie file loaded"}
+          </span>
+
+          <p className="modal-desc">
+            Some videos need a signed-in session before they can be resolved. Export your TikTok
+            cookies as a Netscape <code>cookies.txt</code> and paste the contents below.
+          </p>
+
+          <label className="sr-only" htmlFor="cookie-input">
+            Cookie file contents
+          </label>
+          <textarea
+            id="cookie-input"
+            className="cookie-input"
+            rows={6}
+            placeholder={"# Netscape HTTP Cookie File\n.tiktok.com\tTRUE\t/\tTRUE\t0\tsessionid\t…"}
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            disabled={authed}
+          />
+
+          {error && (
+            <p className="modal-error" role="alert">
+              {error}
             </p>
-            <textarea
-              className="cookie-input"
-              rows={6}
-              placeholder="Paste Netscape cookie file contents here..."
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              disabled={authed}
-            />
-            {error && <p className="error-text">{error}</p>}
-            <div className="cookie-actions">
-              {!authed ? (
-                <button className="btn btn-primary" onClick={handleSave} disabled={saving || !text.trim()}>
-                  <FiUpload size={14} /> {saving ? "Saving..." : "Upload Cookies"}
-                </button>
-              ) : (
-                <button className="btn btn-danger" onClick={handleClear}>
-                  <FiTrash2 size={14} /> Clear Cookies
-                </button>
-              )}
-            </div>
+          )}
+
+          <div className="modal-actions">
+            {!authed ? (
+              <Button variant="primary" onClick={handleSave} disabled={saving || !text.trim()}>
+                <UploadSimple size={16} weight="bold" />
+                <span>{saving ? "Saving…" : "Save cookies"}</span>
+              </Button>
+            ) : (
+              <Button variant="secondary" onClick={handleClear}>
+                <Trash size={16} />
+                <span>Remove cookies</span>
+              </Button>
+            )}
           </div>
         </div>
       </div>
