@@ -1,0 +1,24 @@
+# Git / tooling
+.git
+.gitignore
+.opencode
+.playwright-mcp
+audit_shots
+
+# Python
+.venv
+__pycache__
+*.pyc
+*.pyo
+data
+
+# Node
+node_modules
+frontend/node_modules
+
+# Build artifacts (rebuilt inside the image)
+app/static
+
+# Scratch / local
+*.log
+.env

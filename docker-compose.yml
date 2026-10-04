@@ -1,0 +1,17 @@
+services:
+  savetok:
+    build: .
+    image: savetok:latest
+    container_name: savetok
+    restart: unless-stopped
+    ports:
+      - "${SAVETOK_PORT:-8080}:8080"
+    volumes:
+      - savetok_queue:/tmp/tiktok_queue   # queue DB + downloaded videos
+      - savetok_data:/app/data            # TikTok cookies (Netscape format)
+    environment:
+      - TZ=${TZ:-UTC}
+
+volumes:
+  savetok_queue:
+  savetok_data:
