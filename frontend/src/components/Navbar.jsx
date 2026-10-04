@@ -25,9 +25,6 @@ export default function Navbar({
             <span className="brand-word">SaveTok</span>
           </a>
           <nav className="nav-links" aria-label="Sections">
-            <a className="nav-link" href="#how">
-              How it works
-            </a>
             {queueCount > 0 && (
               <a className="nav-link" href="#queue">
                 Queue

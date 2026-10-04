@@ -290,6 +290,24 @@ async def download_endpoint(url: str, format_id: str, bg: BackgroundTasks):
                         headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
+# Paths that must stay JSON so API clients get a machine-readable 404.
+API_PREFIXES = {"resolve", "download", "queue", "auth", "assets"}
+
+
+@app.get("/{path:path}", include_in_schema=False)
+async def spa_fallback(path: str):
+    """Unknown paths get the app shell so it can render its own 404 view.
+
+    Registered last, so it only sees paths nothing else matched. The response
+    carries a real 404 status either way — this is not a catch-all rewrite.
+    """
+    if path.split("/", 1)[0] in API_PREFIXES:
+        raise HTTPException(status_code=404, detail="Not Found")
+    if SPA_HTML:
+        return HTMLResponse(SPA_HTML, status_code=404)
+    raise HTTPException(status_code=404, detail="Not Found")
+
+
 if __name__ == "__main__":
     import uvicorn
 

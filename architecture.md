@@ -88,6 +88,13 @@ tiktok/
 `app/static/index.html` **once at import**, so the server must be restarted after every
 rebuild — the asset filenames are content-hashed and the old ones are deleted.
 
+### Routing and 404s
+There is no client router. `GET /` serves the app; every other path falls through to a
+catch-all registered last in `app/main.py`, which serves the same shell **with a 404 status**
+so deep links resolve and the client renders `components/NotFound.jsx`. Paths whose first
+segment is an API prefix (`resolve`, `download`, `queue`, `auth`, `assets`) keep a JSON 404
+instead, so API clients never receive HTML.
+
 ### Design system
 Reference language: bencho.dev and obsidianui.dev. `frontend/src/styles/tokens.css` holds a
 white canvas (`--bg`), grey-fill panels (`--panel`, `--panel-2`) used for depth instead of

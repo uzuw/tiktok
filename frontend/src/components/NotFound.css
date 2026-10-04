@@ -1,0 +1,66 @@
+.nf {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.nf-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+  width: 100%;
+  max-width: var(--maxw);
+  margin-inline: auto;
+  padding: var(--s5) var(--gutter);
+}
+
+.nf-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  text-decoration: none;
+}
+
+.nf-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s4);
+  padding: var(--gutter) var(--gutter) var(--s10);
+  text-align: center;
+}
+
+.nf-code {
+  font-family: var(--font-display);
+  font-size: clamp(4.5rem, 15vw, 9rem);
+  font-weight: 600;
+  letter-spacing: -0.06em;
+  line-height: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.nf-title {
+  margin-top: var(--s2);
+  font-family: var(--font-display);
+  font-size: clamp(1.375rem, 2.6vw, 1.75rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.nf-body {
+  max-width: 46ch;
+  color: var(--ink-2);
+  font-size: 0.9375rem;
+}
+
+.nf-main .btn {
+  margin-top: var(--s3);
+}

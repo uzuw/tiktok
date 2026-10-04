@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  DownloadSimple,
   GearSix,
   LinkSimple,
   LockSimple,
   Moon,
-  Question,
   ShieldCheck,
   Sparkle,
   Sun,
@@ -15,6 +13,7 @@ import { authStatus, clearQueue, enqueue, resolveVideo } from "./api";
 import BrandMark from "./components/BrandMark";
 import CommandPalette from "./components/CommandPalette";
 import Navbar from "./components/Navbar";
+import NotFound from "./components/NotFound";
 import QueuePanel from "./components/QueuePanel";
 import ResultSkeleton from "./components/ResultSkeleton";
 import SearchBar from "./components/SearchBar";
@@ -26,12 +25,6 @@ const FACTS = [
   [ShieldCheck, "No watermark"],
   [Sparkle, "Highest quality"],
   [LockSimple, "Stays on your machine"],
-];
-
-const STEPS = [
-  [LinkSimple, "Paste a link", "Drop in any TikTok video URL. Nothing is saved until you ask for it."],
-  [Sparkle, "We find the best copy", "SaveTok reads the format list and keeps the highest resolution that isn't watermarked."],
-  [DownloadSimple, "Download or queue", "Take the file straight away, or line up several and let the queue work through them."],
 ];
 
 function getInitialTheme() {
@@ -106,12 +99,6 @@ export default function App() {
         icon: GearSix,
         run: () => setShowSettings(true),
       },
-      {
-        id: "how",
-        label: "How it works",
-        icon: Question,
-        run: () => document.getElementById("how")?.scrollIntoView({ block: "start" }),
-      },
       ...(queueCount > 0
         ? [
             {
@@ -156,6 +143,12 @@ export default function App() {
     : error
       ? { dot: "dot--bad", label: "Couldn't resolve that link" }
       : { dot: "dot--ok", label: "Ready" };
+
+  // No client router: anything but the root is the 404 view. The server serves
+  // this same shell with a 404 status, so deep links still resolve.
+  if (window.location.pathname !== "/") {
+    return <NotFound theme={theme} onToggleTheme={toggleTheme} />;
+  }
 
   return (
     <div className="app" id="top">
@@ -209,21 +202,6 @@ export default function App() {
           {!loading && result && <VideoResult video={result} onQueue={handleQueueVideo} />}
           <QueuePanel onCount={setQueueCount} />
         </div>
-
-        <section className="shell how" id="how">
-          <h2 className="h2">How it works</h2>
-          <div className="how-grid">
-            {STEPS.map(([Icon, title, body]) => (
-              <div className="how-item" key={title}>
-                <span className="how-icon">
-                  <Icon size={18} weight="bold" />
-                </span>
-                <h3 className="how-title">{title}</h3>
-                <p className="how-body">{body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
       </main>
 
       <footer className="foot">

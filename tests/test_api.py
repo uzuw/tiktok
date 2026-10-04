@@ -67,6 +67,20 @@ def test_favicon_is_served(client):
     assert resp.text.lstrip().startswith("<svg")
 
 
+def test_unknown_page_path_serves_app_shell_with_404(client):
+    """Deep links must resolve so the app can render its own not-found view."""
+    resp = client.get("/definitely-not-a-page")
+    assert resp.status_code == 404
+    assert '<div id="root">' in resp.text
+
+
+def test_unknown_api_path_stays_json(client):
+    resp = client.get("/queue/abc/extra")
+    assert resp.status_code == 404
+    assert resp.headers["content-type"].startswith("application/json")
+    assert resp.json()["detail"] == "Not Found"
+
+
 def test_resolve_uses_ytdlp_and_normalizes_format(client, monkeypatch, no_playwright):
     monkeypatch.setattr(main, "extract_info", lambda url, cookiefile=None: YTDLP_INFO)
     resp = client.post("/resolve", json={"url": VIDEO_URL})
