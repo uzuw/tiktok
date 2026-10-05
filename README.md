@@ -17,17 +17,19 @@
 
 ## Screenshots
 
-| Landing | Queue & result |
+| Landing | Queue while a download runs |
 |---|---|
-| ![Landing](./docs/screenshots/landing.png) | ![Queue](./docs/screenshots/queue.png) |
+| ![Landing](./docs/screenshots/landing.png) | ![Queue in progress](./docs/screenshots/queue-active.png) |
 
-| Dark mode | Command palette |
+| Finished queue | Command palette |
 |---|---|
-| ![Dark](./docs/screenshots/dark.png) | ![Palette](./docs/screenshots/command-palette.png) |
+| ![Saved queue](./docs/screenshots/queue.png) | ![Command palette](./docs/screenshots/command-palette.png) |
 
-| Mobile | Not found |
+| Dark mode | Mobile |
 |---|---|
-| ![Mobile](./docs/screenshots/mobile.png) | ![404](./docs/screenshots/not-found.png) |
+| ![Dark mode](./docs/screenshots/dark.png) | ![Mobile](./docs/screenshots/mobile.png) |
+
+![Not found](./docs/screenshots/not-found.png)
 
 ## Quick start
 
