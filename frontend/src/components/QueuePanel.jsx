@@ -22,7 +22,7 @@ const STATUS_DOT = {
 
 const REMOVE_MS = 170;
 
-export default function QueuePanel({ onCount }) {
+export default function QueuePanel({ onCount, refreshKey = 0 }) {
   const [items, setItems] = useState([]);
   const [removingId, setRemovingId] = useState(null);
   const hasActive = items.some((item) => ACTIVE_STATUSES.has(item.status));
@@ -45,7 +45,7 @@ export default function QueuePanel({ onCount }) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [hasActive]);
+  }, [hasActive, refreshKey]);
 
   useEffect(() => {
     onCount?.(items.length);

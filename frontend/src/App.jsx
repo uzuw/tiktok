@@ -39,6 +39,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const [queueCount, setQueueCount] = useState(0);
+  const [queueRefresh, setQueueRefresh] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
@@ -133,6 +134,8 @@ export default function App() {
     if (!url) return;
     try {
       await enqueue(url, formatId || "");
+      // Pull the new row in now rather than waiting out the idle poll interval.
+      setQueueRefresh((n) => n + 1);
     } catch (e) {
       setError(e.message);
     }
@@ -200,7 +203,7 @@ export default function App() {
         <div className="shell result-stack">
           {loading && <ResultSkeleton />}
           {!loading && result && <VideoResult video={result} onQueue={handleQueueVideo} />}
-          <QueuePanel onCount={setQueueCount} />
+          <QueuePanel onCount={setQueueCount} refreshKey={queueRefresh} />
         </div>
       </main>
 
