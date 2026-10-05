@@ -26,6 +26,16 @@ RUN pip install -r requirements.txt     && playwright install --with-deps chromi
 COPY app/ ./app/
 COPY --from=frontend-build /app/static ./app/static
 
+# Run unprivileged. The queue and cookie directories are the only writable state.
+# Ownership is fixed at start-up by the entrypoint (see below), because a volume
+# created by an earlier root-running image stays root-owned.
+RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin savetok \
+    && mkdir -p /tmp/tiktok_queue /app/data \
+    && chown -R savetok:savetok /app /tmp/tiktok_queue /app/data
+
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod 0755 /usr/local/bin/docker-entrypoint.sh
+
 # Persisted state: queue DB + downloaded files, and TikTok cookie file
 VOLUME ["/tmp/tiktok_queue", "/app/data"]
 
@@ -33,5 +43,7 @@ EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/', timeout=3)"
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

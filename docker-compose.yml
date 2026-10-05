@@ -11,6 +11,13 @@ services:
       - savetok_data:/app/data            # TikTok cookies (Netscape format)
     environment:
       - TZ=${TZ:-UTC}
+      # Leave empty to disable the auth gate (loopback only, please).
+      - SAVETOK_PASSWORD=${SAVETOK_PASSWORD:-}
+      # Inbound requests per minute per IP.
+      - SAVETOK_RATE_LIMIT=${SAVETOK_RATE_LIMIT:-240}
+      # Outbound TikTok requests per second. Higher is faster and more likely
+      # to get the IP blocked.
+      - SAVETOK_OUTBOUND_RPS=${SAVETOK_OUTBOUND_RPS:-1}
 
 volumes:
   savetok_queue:
