@@ -39,29 +39,27 @@ def test_list_get_remove_and_clear():
 # without that session's cookies returns 403 from TikTok's edge. These guard the
 # plumbing that was missing when direct downloads and the queue both failed.
 
-CDN_URL = "https://cdn.example/video.mp4"
+CDN_URL = "https://v16-webapp-prime.tiktok.com/video.mp4"
 
 
-def _install_fake_cdn(monkeypatch, content=b"MP4BYTES", error=None):
+def _install_fake_cdn(monkeypatch, chunks=(b"MP4BYTES",), error=None):
+    """Fake the CDN client. stream_to_file stays real, so the file really lands."""
     captured = {}
 
     class FakeResponse:
-        def __init__(self):
-            self.content = content
+        def iter_content(self, size):
+            return iter(chunks)
 
         def raise_for_status(self):
             if error is not None:
                 raise error
 
-    def fake_get(url, headers=None, cookies=None, impersonate=None):
-        captured.update(
-            url=url, headers=headers or {}, cookies=cookies or {}, impersonate=impersonate
-        )
+    def fake_cdn_get(src, cookies=None, stream=False):
+        captured.update(src=src, cookies=cookies, stream=stream)
         return FakeResponse()
 
-    monkeypatch.setattr(
-        download_manager, "cffi_requests", type("R", (), {"get": staticmethod(fake_get)})
-    )
+    monkeypatch.setattr(download_manager, "check_outbound_url", lambda target: target)
+    monkeypatch.setattr(download_manager, "cdn_get", fake_cdn_get)
     return captured
 
 
@@ -75,10 +73,9 @@ def test_process_item_sends_session_cookies_and_writes_file(monkeypatch):
     row = download_manager.get_item(item["id"])
     assert row["status"] == "completed"
     assert row["error"] is None
-    assert captured["url"] == CDN_URL
+    assert captured["src"] == CDN_URL
     assert captured["cookies"] == {"tt_chain_token": "tok"}
-    assert captured["impersonate"] == "chrome"
-    assert captured["headers"]["Referer"] == "https://www.tiktok.com/"
+    assert captured["stream"] is True
 
     with open(row["file_path"], "rb") as handle:
         assert handle.read() == b"MP4BYTES"

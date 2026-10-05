@@ -3,24 +3,43 @@
 import asyncio
 import os
 import tempfile
+from pathlib import Path
 
 import yt_dlp
-from curl_cffi import requests as cffi_requests
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.cookies import clear_cookies, has_cookies, load_cookies, save_cookies
-from app.download_manager import clear_queue, enqueue, get_item, list_items, remove_item
+from app.download_manager import (
+    QUEUE_DIR,
+    clear_queue,
+    enqueue,
+    get_item,
+    list_items,
+    remove_item,
+)
 from app.extractor import extract_info, is_video_url
 from app.formats import pick_best_format
-from app.playwright_extractor import CDN_HEADERS, get_session_cookies, playwright_extract
+from app.net import BlockedTarget, cdn_get, check_outbound_url, pace_outbound, stream_to_file
+from app.playwright_extractor import get_session_cookies, playwright_extract
+from app.security import BasicAuthMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
 
 
 app = FastAPI(title="TikTok Downloader")
 
+# Innermost first: the outermost added is the one that sees a request first, so
+# CORS goes last and therefore answers preflights before auth can challenge them.
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(
+    RateLimitMiddleware,
+    limit=int(os.getenv("SAVETOK_RATE_LIMIT", "240")),
+)
+_auth_password = os.getenv("SAVETOK_PASSWORD", "")
+if _auth_password:
+    app.add_middleware(BasicAuthMiddleware, password=_auth_password)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -48,7 +67,9 @@ class QueueRequest(BaseModel):
 
 
 class CookieRequest(BaseModel):
-    cookies: str
+    # A Netscape cookie file is a few KB. Capped so an oversized paste is
+    # rejected before it is parsed or written to disk.
+    cookies: str = Field(max_length=256 * 1024)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -160,6 +181,11 @@ async def queue_add(req: QueueRequest):
     if not is_video_url(url):
         raise HTTPException(status_code=400, detail="Invalid TikTok URL")
     fmt = req.format_id.strip() or ""
+    if fmt.startswith("http"):
+        try:
+            check_outbound_url(fmt)
+        except BlockedTarget as exc:
+            raise HTTPException(status_code=400, detail=f"Blocked target: {exc}") from exc
     item = enqueue(url, fmt, title="")
     return item
 
@@ -202,35 +228,47 @@ async def queue_file(item_id: str):
         raise HTTPException(status_code=404, detail="Queue item not found")
     if item["status"] != "completed" or not item.get("file_path"):
         raise HTTPException(status_code=400, detail="File not ready")
-    if not os.path.exists(item["file_path"]):
+    # The path comes from our own database, but confine it to the queue
+    # directory anyway so no stored value can serve an arbitrary file.
+    try:
+        path = Path(item["file_path"]).resolve()
+        path.relative_to(Path(QUEUE_DIR).resolve())
+    except (OSError, ValueError):
+        raise HTTPException(status_code=404, detail="File not found on disk") from None
+    if not path.is_file():
         raise HTTPException(status_code=404, detail="File not found on disk")
-    fname = os.path.basename(item["file_path"])
-    return FileResponse(item["file_path"], filename=fname, media_type="video/mp4",
+    fname = path.name
+    return FileResponse(path, filename=fname, media_type="video/mp4",
                         headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
 @app.get("/download")
 async def download_endpoint(url: str, format_id: str, bg: BackgroundTasks):
     """Download a TikTok video."""
-    if not is_video_url(url) and not format_id.startswith("http"):
+    direct_url = format_id if format_id.startswith("http") else ""
+
+    # Both targets arrive as request parameters, so neither is fetched until it
+    # passes the TikTok allowlist. This is what stops the endpoint being used as
+    # a general-purpose fetcher.
+    for candidate in filter(None, (direct_url, url if url.startswith("http") else "")):
+        try:
+            check_outbound_url(candidate)
+        except BlockedTarget as exc:
+            raise HTTPException(status_code=400, detail=f"Blocked target: {exc}") from exc
+
+    if not direct_url and not is_video_url(url):
         raise HTTPException(status_code=400, detail="Invalid TikTok URL")
 
     loop = asyncio.get_event_loop()
 
-    def download_direct(src: str) -> str:
+    def download_direct(src: str) -> tuple[str, str]:
         fd, tmp = tempfile.mkstemp(suffix=".mp4")
         os.close(fd)
         # The CDN URL is signed for the browser session that produced it, so it
         # needs that session's cookies plus the usual Referer/UA.
-        resp = cffi_requests.get(
-            src,
-            headers=CDN_HEADERS,
-            cookies=get_session_cookies(),
-            impersonate="chrome",
-        )
+        resp = cdn_get(src, cookies=get_session_cookies(), stream=True)
         resp.raise_for_status()
-        with open(tmp, "wb") as f:
-            f.write(resp.content)
+        stream_to_file(resp, tmp)
         return tmp, "video"
 
     def download_ytdlp() -> tuple[str, str]:
@@ -246,6 +284,7 @@ async def download_endpoint(url: str, format_id: str, bg: BackgroundTasks):
         cookiefile = load_cookies()
         if cookiefile:
             opts["cookiefile"] = cookiefile
+        pace_outbound()
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
         return tmp, info.get("id", "video")

@@ -4,12 +4,13 @@ Network access is never involved: yt-dlp, Playwright and the CDN HTTP client
 are all monkeypatched.
 """
 
-import os
+from pathlib import Path
 
 import pytest
 
 import app.main as main
 from app import database
+from app.download_manager import QUEUE_DIR
 
 VIDEO_URL = "https://www.tiktok.com/@user/video/7123456789012345678"
 
@@ -238,24 +239,35 @@ def test_queue_file_not_ready(client):
     assert resp.json()["detail"] == "File not ready"
 
 
-def test_queue_file_completed(client, tmp_path):
+def test_queue_file_completed(client):
     item_id = client.post("/queue", json={"url": VIDEO_URL}).json()["id"]
-    path = tmp_path / "clip.mp4"
+    path = Path(QUEUE_DIR) / f"{item_id}.mp4"
     path.write_bytes(b"VIDEO-BYTES")
     database.update_item(item_id, status="completed", file_path=str(path))
 
     resp = client.get(f"/queue/{item_id}/file")
     assert resp.status_code == 200
     assert resp.content == b"VIDEO-BYTES"
-    assert resp.headers["content-disposition"] == 'attachment; filename="clip.mp4"'
+    assert resp.headers["content-disposition"] == f'attachment; filename="{item_id}.mp4"'
+    path.unlink()
 
 
-def test_queue_file_deleted_from_disk(client, tmp_path):
+def test_queue_file_deleted_from_disk(client):
     item_id = client.post("/queue", json={"url": VIDEO_URL}).json()["id"]
-    path = tmp_path / "gone.mp4"
+    path = Path(QUEUE_DIR) / f"{item_id}.mp4"
     path.write_bytes(b"x")
     database.update_item(item_id, status="completed", file_path=str(path))
-    os.unlink(path)
+    path.unlink()
+
+    assert client.get(f"/queue/{item_id}/file").status_code == 404
+
+
+def test_queue_file_refuses_paths_outside_the_queue_dir(client, tmp_path):
+    """A stored path must not be able to serve an arbitrary file."""
+    item_id = client.post("/queue", json={"url": VIDEO_URL}).json()["id"]
+    outside = tmp_path / "secret.txt"
+    outside.write_bytes(b"SECRET")
+    database.update_item(item_id, status="completed", file_path=str(outside))
 
     assert client.get(f"/queue/{item_id}/file").status_code == 404
 
@@ -265,32 +277,79 @@ def test_download_rejects_unrecognized_request(client):
     assert resp.status_code == 400
 
 
-def test_download_direct_url_sends_session_cookies_and_headers(client, monkeypatch):
+def test_download_direct_url_sends_session_cookies(client, monkeypatch):
     """The CDN signs media URLs to the browser session that minted them; a
     cookie-less fetch gets 403. This is the regression guard for that bug."""
     captured = {}
 
     class FakeResponse:
-        content = b"MP4DATA"
+        def iter_content(self, size):
+            return iter([b"MP4", b"DATA"])
 
         def raise_for_status(self):
             pass
 
-    class FakeRequests:
-        @staticmethod
-        def get(url, headers=None, cookies=None, impersonate=None):
-            captured.update(url=url, headers=headers or {}, cookies=cookies or {}, impersonate=impersonate)
-            return FakeResponse()
+    def fake_cdn_get(src, cookies=None, stream=False):
+        captured.update(src=src, cookies=cookies, stream=stream)
+        return FakeResponse()
 
-    monkeypatch.setattr(main, "cffi_requests", FakeRequests)
+    monkeypatch.setattr(main, "check_outbound_url", lambda target: target)
+    monkeypatch.setattr(main, "cdn_get", fake_cdn_get)
     monkeypatch.setattr(main, "get_session_cookies", lambda: {"tt_chain_token": "tok"})
 
-    resp = client.get("/download", params={"url": VIDEO_URL, "format_id": "https://cdn/tiktok.mp4"})
+    media = "https://v16-webapp-prime.tiktok.com/video.mp4"
+    resp = client.get("/download", params={"url": VIDEO_URL, "format_id": media})
     assert resp.status_code == 200
     assert resp.content == b"MP4DATA"
     assert resp.headers["content-disposition"] == 'attachment; filename="tiktok_video.mp4"'
-    assert captured["url"] == "https://cdn/tiktok.mp4"
-    assert captured["impersonate"] == "chrome"
+    assert captured["src"] == media
     assert captured["cookies"] == {"tt_chain_token": "tok"}
-    assert captured["headers"]["Referer"] == "https://www.tiktok.com/"
-    assert captured["headers"]["User-Agent"]
+    assert captured["stream"] is True
+
+
+# ── Outbound target validation ──────────────────────────────────────────────
+# Every outbound URL arrives as a request parameter, so the endpoints must not
+# be usable as general-purpose fetchers.
+
+
+def test_download_rejects_internal_target(client):
+    resp = client.get(
+        "/download",
+        params={"url": VIDEO_URL, "format_id": "http://127.0.0.1:8080/auth/status"},
+    )
+    assert resp.status_code == 400
+    assert "Blocked target" in resp.json()["detail"]
+
+
+def test_download_rejects_metadata_service_target(client):
+    resp = client.get(
+        "/download",
+        params={"url": VIDEO_URL, "format_id": "http://169.254.169.254/latest/meta-data/"},
+    )
+    assert resp.status_code == 400
+
+
+def test_download_rejects_non_tiktok_page_url(client):
+    resp = client.get(
+        "/download", params={"url": "https://example.com/video/1", "format_id": "h264"}
+    )
+    assert resp.status_code == 400
+
+
+def test_queue_rejects_internal_media_url(client):
+    resp = client.post(
+        "/queue",
+        json={"url": VIDEO_URL, "format_id": "http://127.0.0.1:8080/auth/status"},
+    )
+    assert resp.status_code == 400
+    assert "Blocked target" in resp.json()["detail"]
+
+
+def test_resolve_rejects_non_tiktok_host(client, no_playwright):
+    resp = client.post("/resolve", json={"url": "https://example.com/video/123"})
+    assert resp.status_code == 400
+
+
+def test_auth_cookies_rejects_oversized_payload(client):
+    resp = client.post("/auth/cookies", json={"cookies": "x" * (256 * 1024 + 1)})
+    assert resp.status_code == 422

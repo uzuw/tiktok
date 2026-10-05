@@ -8,6 +8,8 @@ from typing import Any
 
 from playwright.async_api import async_playwright, Browser, Page
 
+from app.net import pace_outbound
+
 _browser: Browser | None = None
 _playwright = None
 _lock = asyncio.Lock()
@@ -17,17 +19,6 @@ _lock = asyncio.Lock()
 # `tt_chain_token` cookie — so a server-side fetch without the jar that
 # produced the URL gets 403 from TikTok's edge. Harvested on every extraction.
 _session_cookies: dict[str, str] = {}
-
-# Headers the CDN also checks for. Sent with every direct media request.
-CDN_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-    ),
-    "Referer": "https://www.tiktok.com/",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Accept": "*/*",
-}
 
 
 def get_session_cookies() -> dict[str, str]:
@@ -169,6 +160,7 @@ async def playwright_extract(url: str, cookies_file: str | None = None) -> dict[
     page = await context.new_page()
 
     try:
+        pace_outbound()
         await page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
         # Wait for either universal data or a timeout

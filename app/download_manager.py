@@ -6,10 +6,10 @@ import uuid
 from pathlib import Path
 
 import yt_dlp
-from curl_cffi import requests as cffi_requests
 
 from app.cookies import load_cookies
-from app.playwright_extractor import CDN_HEADERS, get_session_cookies
+from app.net import BlockedTarget, cdn_get, check_outbound_url, pace_outbound, stream_to_file
+from app.playwright_extractor import get_session_cookies
 from app.database import (
     claim_pending,
     clear_items as db_clear,
@@ -24,6 +24,10 @@ from app.database import (
 QUEUE_DIR = Path("/tmp/tiktok_queue")
 QUEUE_DIR.mkdir(parents=True, exist_ok=True)
 
+# Set on enqueue so the worker starts a job immediately instead of waiting out
+# its poll interval.
+_wake = threading.Event()
+
 
 def enqueue(url: str, format_id: str, title: str = "") -> dict:
     item = {
@@ -37,7 +41,9 @@ def enqueue(url: str, format_id: str, title: str = "") -> dict:
         "error": None,
         "retry_count": 0,
     }
-    return insert_item(item)
+    stored = insert_item(item)
+    _wake.set()
+    return stored
 
 
 def list_items() -> list[dict]:
@@ -76,19 +82,15 @@ def process_item(item: dict) -> None:
 
     try:
         if fmt.startswith("http"):
-            # Same signed-URL rules as /download: the CDN wants the cookies
-            # from the browser session that minted this URL.
-            resp = cffi_requests.get(
-                fmt,
-                headers=CDN_HEADERS,
-                cookies=get_session_cookies(),
-                impersonate="chrome",
-            )
+            # Second layer of the same check /queue applies: never fetch a
+            # caller-supplied URL that is not TikTok media.
+            check_outbound_url(fmt)
+            resp = cdn_get(fmt, cookies=get_session_cookies(), stream=True)
             resp.raise_for_status()
-            with open(dest, "wb") as f:
-                f.write(resp.content)
+            stream_to_file(resp, dest)
             info = {"id": item_id}
         else:
+            pace_outbound()
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=True)
         update_item(item_id, status="completed", video_id=info.get("id", ""), file_path=dest)
@@ -100,7 +102,8 @@ def _worker():
     while True:
         item = claim_pending()
         if item is None:
-            threading.Event().wait(1)
+            _wake.wait(timeout=1.0)
+            _wake.clear()
             continue
         process_item(item)
 

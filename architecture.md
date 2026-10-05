@@ -95,6 +95,40 @@ so deep links resolve and the client renders `components/NotFound.jsx`. Paths wh
 segment is an API prefix (`resolve`, `download`, `queue`, `auth`, `assets`) keep a JSON 404
 instead, so API clients never receive HTML.
 
+### Security model
+Two modules hold the policy, and both are enforced at the edges rather than sprinkled
+through handlers.
+
+`app/net.py` — **outbound**. Every outbound URL reaches the server as a request parameter,
+so none is fetched before `check_outbound_url()` passes: scheme must be http(s), the host
+must be on the TikTok allowlist (label-boundary match, so `eviltiktok.com` fails), and the
+name must resolve only to public addresses (rejecting loopback, link-local and RFC1918, which
+also blunts DNS rebinding). Enforced in `/download`, in `/queue`, and again in the queue
+worker. Without it the download endpoint is a general-purpose fetcher — it would return the
+body of any address the server can reach.
+
+The same module owns the shared `curl_cffi` session and the token bucket that paces
+outbound TikTok traffic (`SAVETOK_OUTBOUND_RPS`, default 1/s). Pacing is deliberate latency:
+faster increases the odds of an IP block.
+
+`app/security.py` — **inbound**. `BasicAuthMiddleware` (active only when `SAVETOK_PASSWORD`
+is set; username ignored, password compared with `hmac.compare_digest`), `RateLimitMiddleware`
+(sliding window per IP, static assets excluded so the budget is spent on API calls), and
+`SecurityHeadersMiddleware` (nosniff, frame-deny, no-referrer, and a CSP that allows no inline
+or eval'd script). Middleware is added innermost-first, so CORS ends up outermost and answers
+preflights before auth can challenge them.
+
+Also: cookie payloads are capped at 256 KiB before parsing, and `/queue/{id}/file` refuses any
+stored path that resolves outside the queue directory. The container runs as uid 10001.
+
+| Env var | Default | Effect |
+|---|---|---|
+| `SAVETOK_PASSWORD` | unset | Auth gate; unset disables it |
+| `SAVETOK_RATE_LIMIT` | 240 | Inbound requests/min per IP |
+| `SAVETOK_OUTBOUND_RPS` | 1 | Outbound TikTok requests/sec |
+| `SAVETOK_OUTBOUND_BURST` | 3 | Allowance above the steady rate |
+| `SAVETOK_TRUST_PROXY` | unset | Honour `X-Forwarded-For` (only behind a proxy) |
+
 ### Design system
 Reference language: bencho.dev and obsidianui.dev. `frontend/src/styles/tokens.css` holds a
 white canvas (`--bg`), grey-fill panels (`--panel`, `--panel-2`) used for depth instead of

@@ -172,8 +172,3 @@ def test_harvest_cookies_ignores_broken_context():
     asyncio.run(playwright_extractor._harvest_cookies(_CtxWith({"keep": "v"})))
     asyncio.run(playwright_extractor._harvest_cookies(BrokenContext()))
     assert playwright_extractor.get_session_cookies() == {"keep": "v"}
-
-
-def test_cdn_headers_carry_referer_and_user_agent():
-    assert playwright_extractor.CDN_HEADERS["Referer"] == "https://www.tiktok.com/"
-    assert "Mozilla/5.0" in playwright_extractor.CDN_HEADERS["User-Agent"]
