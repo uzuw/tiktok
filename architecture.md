@@ -55,32 +55,33 @@ yt-dlp returns 6-9 formats per video. Most are chunk-split variants (-0, -1 suff
 ```
 tiktok/
 ├── app/
-│   ├── __init__.py
-│   ├── main.py               # FastAPI app, routes
-│   ├── extractor.py          # yt-dlp wrapper (resolve, download helpers)
-│   ├── formats.py            # Format normalization logic
-│   ├── playwright_extractor.py  # headless-Chromium fallback extractor
-│   ├── download_manager.py   # queue worker thread
-│   ├── database.py           # SQLite queue store
-│   ├── cookies.py            # TikTok cookie file handling
-│   └── static/               # BUILD OUTPUT (committed) — vite writes here
-├── frontend/                 # React 19 + Vite source
+│   ├── main.py                # FastAPI app, routes, middleware stack
+│   ├── net.py                 # outbound policy: host allowlist, pacing, CDN client
+│   ├── security.py            # inbound policy: auth, rate limit, security headers
+│   ├── extractor.py           # yt-dlp wrapper + URL validation
+│   ├── playwright_extractor.py# headless-Chromium fallback, session cookie harvest
+│   ├── formats.py             # format selection
+│   ├── download_manager.py    # queue + background worker
+│   ├── database.py            # SQLite queue store
+│   ├── cookies.py             # Netscape cookie file handling
+│   └── static/                # BUILD OUTPUT (committed) — vite writes here
+├── frontend/                  # React 19 + Vite source
 │   ├── src/
 │   │   ├── App.jsx
-│   │   ├── components/       # Navbar, SearchBar, VideoResult, QueuePanel, …
-│   │   ├── styles/           # tokens.css, base.css
-│   │   └── assets/           # generated halftone art (scripts/gen-art.mjs)
-│   └── scripts/gen-art.mjs    # regenerates the dither SVGs
-├── tests/                    # pytest suite
-├── phase0_test.py            # Throwaway feasibility script
+│   │   ├── components/        # Navbar, SearchBar, VideoResult, QueuePanel,
+│   │   │                      # ResultSkeleton, CommandPalette, SettingsModal, NotFound
+│   │   ├── hooks/             # useModifierHeld
+│   │   └── styles/            # tokens.css, base.css
+│   └── public/favicon.svg
+├── tests/                     # pytest suite
+├── docs/screenshots/          # images used by the README
 ├── requirements.txt
 ├── requirements-dev.txt
-├── docker-compose.yml        # Phase 6
-├── Dockerfile                # Phase 6
-├── AGENT.md
-├── architecture.md
-├── phases.md
-└── plans.md
+├── pytest.ini
+├── Dockerfile
+├── docker-compose.yml
+├── docker-entrypoint.sh
+└── architecture.md
 ```
 
 ### Frontend build

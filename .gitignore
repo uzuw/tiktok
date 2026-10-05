@@ -1,6 +1,5 @@
 .opencode
 AGENT.md
-architechture.md
 plans.md
 phase0_results.md
 phases.md
@@ -9,3 +8,4 @@ __pycache__
 node_modules
 audit_shots/
 data/
+.playwright-mcp/

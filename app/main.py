@@ -74,9 +74,11 @@ class CookieRequest(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    if SPA_HTML:
-        return HTMLResponse(SPA_HTML)
-    return HTMLResponse(open("app/templates/index.html").read())
+    if SPA_HTML is None:
+        # The build output is committed, and the Dockerfile rebuilds it, so this
+        # only happens if app/static was deleted by hand.
+        raise HTTPException(status_code=503, detail="Frontend build missing — run npm run build")
+    return HTMLResponse(SPA_HTML)
 
 
 @app.get("/favicon.svg", include_in_schema=False)

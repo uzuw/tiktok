@@ -32,13 +32,9 @@ def pick_best_format(formats: list[dict[str, Any]]) -> dict[str, str] | None:
             if f.get("vcodec", "").startswith("h264") and not best.get("vcodec", "").startswith("h264"):
                 best = f
 
-    # Fallback: pick any video format at all
-    if best is None:
-        for f in formats:
-            if f.get("vcodec", "none") != "none" and f.get("format_id") != "download":
-                best = f
-                break
-
+    # No second pass is needed: the conditions that skip a format here are the
+    # same ones that would have skipped it above, so `best is None` means the
+    # list holds nothing usable.
     if best is None:
         return None
 
